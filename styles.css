@@ -89,6 +89,12 @@ button {
     gap: 1rem;
 }
 
+.top-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
 .header-card h1 {
     margin: 0;
     font-size: clamp(1.7rem, 2.2vw, 2.5rem);
@@ -121,6 +127,49 @@ button {
     background: linear-gradient(135deg, rgba(53,179,255,0.22), rgba(45,212,165,0.12));
 }
 
+.menu-window {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(3, 10, 20, 0.58);
+    backdrop-filter: blur(8px);
+}
+
+.menu-dialog {
+    width: min(560px, 100%);
+    max-height: min(760px, calc(100vh - 2rem));
+    overflow: auto;
+}
+
+.menu-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.menu-bar h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
 .map-panel {
     display: flex;
     flex-direction: column;
@@ -129,10 +178,31 @@ button {
 
 #map {
     min-height: 70vh;
+    height: calc(100vh - 13rem);
     border-radius: 28px;
     overflow: hidden;
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
+}
+
+.depth-label,
+.sonar-label {
+    border: 1px solid rgba(255,255,255,0.34);
+    border-radius: 999px;
+    color: #061523;
+    font-weight: 800;
+    font-size: 0.78rem;
+    padding: 0.18rem 0.45rem;
+    box-shadow: 0 8px 18px rgba(3, 17, 38, 0.25);
+    white-space: nowrap;
+}
+
+.depth-label {
+    background: rgba(106, 226, 255, 0.92);
+}
+
+.sonar-label {
+    background: rgba(45, 212, 165, 0.92);
 }
 
 /* Leaflet: popups/styles theme sync */
