@@ -11,6 +11,9 @@
     --success: #2dd4a5;
     --shadow: 0 24px 80px rgba(3, 17, 38, 0.4);
     --border: rgba(255,255,255,0.08);
+    --leaflet-popup-bg: #f8fbff;
+    --leaflet-popup-text: #102033;
+    --leaflet-popup-border: rgba(16, 32, 51, 0.14);
 }
 
 * {
@@ -26,6 +29,28 @@ html, body {
                 linear-gradient(180deg, #08101f 0%, #08161f 100%);
     color: var(--text);
 }
+
+:root[data-theme="light"] {
+    --bg: #f4fbff;
+    --panel: rgba(255, 255, 255, 0.94);
+    --panel-soft: rgba(237, 247, 255, 0.96);
+    --accent: #0876c9;
+    --accent-2: #008a9f;
+    --text: #102033;
+    --muted: #52657a;
+    --shadow: 0 24px 70px rgba(72, 111, 145, 0.18);
+    --border: rgba(13, 52, 81, 0.12);
+    --leaflet-popup-bg: #ffffff;
+    --leaflet-popup-text: #102033;
+    --leaflet-popup-border: rgba(13, 52, 81, 0.14);
+}
+
+:root[data-theme="light"] body {
+    background: radial-gradient(circle at top left, rgba(10, 132, 255, 0.16), transparent 38%),
+                radial-gradient(circle at bottom right, rgba(5, 169, 122, 0.10), transparent 28%),
+                linear-gradient(180deg, #f4fbff 0%, #eef6ff 100%);
+}
+
 
 button, input, select {
     font: inherit;
@@ -106,9 +131,32 @@ button {
     min-height: 70vh;
     border-radius: 28px;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid var(--border);
     box-shadow: var(--shadow);
 }
+
+/* Leaflet: popups/styles theme sync */
+.leaflet-container {
+    background: transparent;
+}
+
+.leaflet-popup-content-wrapper {
+    background: var(--leaflet-popup-bg);
+    color: var(--leaflet-popup-text);
+    border-radius: 14px;
+    border: 1px solid var(--leaflet-popup-border);
+}
+
+.leaflet-popup-tip {
+    background: var(--leaflet-popup-bg);
+    border: 1px solid var(--leaflet-popup-border);
+}
+
+.leaflet-popup-content {
+    margin: 0.2rem 0.35rem;
+    color: var(--leaflet-popup-text);
+}
+
 
 .info-grid {
     display: grid;

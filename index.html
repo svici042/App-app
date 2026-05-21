@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Jūrinė Navigacija</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha512-sA+ePHp01VXBwc1ZKbQGxnTiPRLtEsszfF+lGmdzFh5mM1WL9bHujbQ5WQbWneJ6d5vhNLTtkvY2/7hF9qIXzw==" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
     <div class="app-shell">
@@ -13,7 +13,12 @@
             <article class="card header-card">
                 <div>
                     <h1>Marine Navigator</h1>
-                    <p>LT: Interaktyvi navigacijos programa jūrai, GPS/GLONASS ir maršrutų planavimo funkcijomis. EN: Responsive sea navigation app with real-time location and route planning.</p>
+                    <p id="app-description">LT: Interaktyvi navigacijos programa jūrai, GPS/GLONASS ir maršrutų planavimo funkcijomis. EN: Responsive sea navigation app with real-time location and route planning.</p>
+                </div>
+
+                <div class="top-actions">
+                    <button class="btn-light" type="button" id="lang-toggle">LT/EN</button>
+                    <button class="btn-light" type="button" id="theme-toggle">Day/Night</button>
                 </div>
                 <div class="nav-tabs">
                     <button class="active" data-tab="tab-navigation">Navigacija / Navigation</button>
@@ -27,8 +32,9 @@
                 <h3>Realaus laiko GPS / Real-time GPS</h3>
                 <p id="gps-status">...</p>
                 <div class="actions">
-                    <button class="btn-strong" type="button">Paleisti GPS / Start GPS</button>
-                    <button class="btn-light" type="button">Pridėti maršruto tašką / Add waypoint</button>
+                    <button class="btn-strong" type="button" id="gps-start">Paleisti GPS / Start GPS</button>
+                    <button class="btn-light" type="button" id="waypoint-mode-btn">Pridėti maršruto tašką / Add waypoint</button>
+                    <button class="btn-light" type="button" id="clear-route">Išvalyti maršrutą / Clear route</button>
                 </div>
                 <div class="info-card">
                     <h3>Maršruto atstumas</h3>
@@ -64,8 +70,8 @@
             </article>
 
             <article class="card tab-panel hidden" id="tab-offline">
-                <h3>Offline funkcijos</h3>
-                <p class="small-note">LT: Išsaugokite pasirinktą sritį naudodami vietinę saugyklą. EN: Save selected area for offline use.</p>
+                <h3 id="offline-title">Offline funkcijos</h3>
+                <p class="small-note" id="offline-description">LT: Išsaugokite pasirinktą sritį naudodami vietinę saugyklą. EN: Save selected area for offline use.</p>
                 <div class="actions">
                     <button class="btn-strong" id="download-offline" type="button">Parsisiųsti zoną / Download area</button>
                     <button class="btn-light" id="load-offline" type="button">Įkelti offline / Load offline</button>
@@ -89,10 +95,10 @@
                     <p>LT: 3D stilius leidžia peržiūrėti reljefą ir dugno formas. EN: 3D style overlays terrain and seabed features.</p>
                 </div>
             </div>
-            <footer>LT: Palieskite žemėlapį, kad pridėtumėte maršruto tašką. EN: Tap the map to add route waypoints.</footer>
+            <footer id="map-footer">LT: Palieskite žemėlapį, kad pridėtumėte maršruto tašką. EN: Tap the map to add route waypoints.</footer>
         </section>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdlxUMyMM8Mf4I6j0s7VvBvjrckkC2uPSKQooV3Vg1kg7VEncb8LvZM2jZYjT1A/3h4tXwKr3sg==" crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
