@@ -20,6 +20,7 @@ const routeState = {
 
 let waypointMode = false;
 let layerControl = null;
+let marineLayerRenderTimer = null;
 
 // LT: Kalba ir tema išsaugomos naršyklėje, kad perkrovus puslapį pasirinkimai liktų. / EN: Language and theme are saved in the browser so choices remain after reload.
 let lang = "lt";
@@ -258,6 +259,14 @@ const map = L.map("map", {
   zoomControl: false,
 });
 
+// LT: Atskiri pane sluoksniai užtikrina, kad reljefas, gyliai ir sonaras būtų matomi virš bazinio žemėlapio. / EN: Separate panes ensure relief, depths, and sonar stay visible above the base map.
+map.createPane("reliefPane");
+map.createPane("depthPane");
+map.createPane("sonarPane");
+map.getPane("reliefPane").style.zIndex = 430;
+map.getPane("depthPane").style.zIndex = 440;
+map.getPane("sonarPane").style.zIndex = 450;
+
 // LT: Baziniai žemėlapio sluoksniai, kuriuos galima pasirinkti dešinėje valdiklyje. / EN: Base map layers selectable from the control on the right.
 const baseLayers = {
   Default: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -270,9 +279,9 @@ const baseLayers = {
     },
   ),
   Terra: L.tileLayer(
-    "https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg",
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
     {
-      attribution: "Map tiles by Stamen Design",
+      attribution: "© Esri",
     },
   ),
 };
@@ -315,20 +324,56 @@ function renderLayerControl() {
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-// LT: Sukuria matomus gylių taškus, gylio etiketes ir kontūrų linijas. / EN: Creates visible depth points, depth labels, and contour lines.
+// LT: Apriboja skaičių tarp minimalaus ir maksimalaus, kad sluoksniai liktų stabilūs. / EN: Clamps a number between a minimum and maximum so layers stay stable.
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+// LT: Sugeneruoja pseudo gylį pagal koordinates; tai leidžia rodyti gylius visoje matomoje zonoje. / EN: Generates pseudo-depth from coordinates so depths can be shown across the visible area.
+function getDepthForPosition(lat, lng) {
+  const wave =
+    Math.sin(lat * 0.72) * 34 +
+    Math.cos(lng * 0.58) * 28 +
+    Math.sin((lat + lng) * 0.21) * 18;
+  return Math.round(clamp(Math.abs(wave) + 8, 6, 130));
+}
+
+// LT: Grąžina saugias dabartinio žemėlapio ribas, kad dinaminiai sluoksniai būtų piešiami tik matomame plote. / EN: Returns safe current map bounds so dynamic layers are drawn only inside the visible area.
+function getVisibleMapBounds() {
+  const bounds = map.getBounds();
+  return {
+    north: clamp(bounds.getNorth(), -84, 84),
+    south: clamp(bounds.getSouth(), -84, 84),
+    east: bounds.getEast(),
+    west: bounds.getWest(),
+  };
+}
+
+// LT: Sukuria taškų tinklelį per visą matomą žemėlapio plotą. / EN: Creates a point grid across the full visible map area.
+function createVisibleGrid(columns = 6, rows = 4) {
+  const bounds = getVisibleMapBounds();
+  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
+  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
+  const points = [];
+
+  for (let row = 1; row <= rows; row++) {
+    for (let col = 1; col <= columns; col++) {
+      const lat = bounds.south + (latSpan * row) / (rows + 1);
+      const lng = bounds.west + (lngSpan * col) / (columns + 1);
+      points.push({ lat, lng, depth: getDepthForPosition(lat, lng) });
+    }
+  }
+
+  return points;
+}
+
+// LT: Sukuria matomus gylių taškus, gylio etiketes ir kontūrų linijas per visą dabartinį žemėlapio vaizdą. / EN: Creates visible depth points, labels, and contour lines across the current map view.
 function createDepthMarkers() {
-  const points = [
-    { lat: 55.88, lng: 20.78, depth: 18 },
-    { lat: 55.83, lng: 21.22, depth: 29 },
-    { lat: 55.7, lng: 21.42, depth: 36 },
-    { lat: 55.63, lng: 21.0, depth: 51 },
-    { lat: 55.52, lng: 21.24, depth: 63 },
-    { lat: 55.46, lng: 20.9, depth: 72 },
-    { lat: 55.9, lng: 21.5, depth: 18 },
-  ];
+  const points = createVisibleGrid(6, 4);
 
   points.forEach((point) => {
     L.circleMarker([point.lat, point.lng], {
+      pane: "depthPane",
       radius: 12,
       fillColor: "#3dd4ff",
       color: "#0bc8ff",
@@ -340,6 +385,7 @@ function createDepthMarkers() {
       .addTo(depthLayer);
 
     L.marker([point.lat, point.lng], {
+      pane: "depthPane",
       icon: L.divIcon({
         className: "depth-label",
         html: `${point.depth} m`,
@@ -351,27 +397,21 @@ function createDepthMarkers() {
   });
 
   // LT: Kontūrų linijos imituoja gylio žemėlapio izobatas. / EN: Contour lines simulate depth-chart isobaths.
-  [
-    [
-      [55.95, 20.7],
-      [55.85, 21.05],
-      [55.78, 21.45],
-      [55.68, 21.7],
-    ],
-    [
-      [55.78, 20.58],
-      [55.66, 20.95],
-      [55.55, 21.28],
-      [55.42, 21.52],
-    ],
-    [
-      [55.58, 20.48],
-      [55.45, 20.85],
-      [55.34, 21.2],
-      [55.24, 21.42],
-    ],
-  ].forEach((line, index) => {
+  const bounds = getVisibleMapBounds();
+  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
+  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
+  const contourLines = [0.25, 0.5, 0.75].map((ratio, index) => {
+    const baseLat = bounds.south + latSpan * ratio;
+    return Array.from({ length: 7 }, (_, step) => {
+      const xRatio = step / 6;
+      const latOffset = Math.sin((step + index) * 1.15) * latSpan * 0.035;
+      return [baseLat + latOffset, bounds.west + lngSpan * xRatio];
+    });
+  });
+
+  contourLines.forEach((line, index) => {
     L.polyline(line, {
+      pane: "depthPane",
       color: ["#8be9ff", "#35b3ff", "#0876c9"][index],
       weight: 2,
       opacity: 0.75,
@@ -380,13 +420,18 @@ function createDepthMarkers() {
   });
 }
 
-// LT: Sukuria sonaro žiedus, spindulį ir centrinę SONAR etiketę. / EN: Creates sonar rings, a sweep line, and the central SONAR label.
+// LT: Sukuria sonaro žiedus, spindulį ir centrinę SONAR etiketę dabartinio vaizdo centre. / EN: Creates sonar rings, a sweep line, and the SONAR label at the center of the current view.
 function createSonarOverlay() {
-  const center = [55.75, 21.1];
-  const rings = [9000, 18000, 27000];
+  const bounds = getVisibleMapBounds();
+  const center = map.getCenter();
+  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
+  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
+  const ringBase = clamp(Math.min(latSpan, lngSpan) * 18500, 6000, 180000);
+  const rings = [ringBase, ringBase * 2, ringBase * 3];
 
   rings.forEach((radius) => {
-    L.circle(center, {
+    L.circle([center.lat, center.lng], {
+      pane: "sonarPane",
       radius,
       color: "#2dd4a5",
       fillColor: "#2dd4a5",
@@ -399,20 +444,21 @@ function createSonarOverlay() {
   });
 
   // LT: Spindulys parodo sonaro skenavimo kryptį. / EN: The sweep line shows the sonar scan direction.
-  [
-    [55.75, 21.1],
-    [55.98, 21.32],
-  ].forEach((_, index, points) => {
-    if (index === 0) {
-      L.polyline(points, {
-        color: "#2dd4a5",
-        weight: 4,
-        opacity: 0.86,
-      }).addTo(sonarLayer);
-    }
-  });
+  L.polyline(
+    [
+      [center.lat, center.lng],
+      [center.lat + latSpan * 0.28, center.lng + lngSpan * 0.28],
+    ],
+    {
+      pane: "sonarPane",
+      color: "#2dd4a5",
+      weight: 4,
+      opacity: 0.86,
+    },
+  ).addTo(sonarLayer);
 
-  L.marker(center, {
+  L.marker([center.lat, center.lng], {
+    pane: "sonarPane",
     icon: L.divIcon({
       className: "sonar-label",
       html: "SONAR",
@@ -422,35 +468,38 @@ function createSonarOverlay() {
   }).addTo(sonarLayer);
 }
 
-// LT: Sukuria supaprastintą šešėliuotą dugno reljefą iš poligonų ir keterų linijų. / EN: Creates simplified shaded seabed relief from polygons and ridge lines.
+// LT: Sukuria supaprastintą šešėliuotą dugno reljefą per visą dabartinį žemėlapio vaizdą. / EN: Creates simplified shaded seabed relief across the full current map view.
 function createReliefOverlay() {
+  const bounds = getVisibleMapBounds();
+  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
+  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
   const reliefBands = [
     {
       points: [
-        [56.02, 20.55],
-        [55.96, 21.72],
-        [55.78, 21.86],
-        [55.83, 20.48],
+        [bounds.south + latSpan * 0.04, bounds.west],
+        [bounds.south + latSpan * 0.24, bounds.east],
+        [bounds.south + latSpan * 0.42, bounds.east],
+        [bounds.south + latSpan * 0.2, bounds.west],
       ],
       fill: "#113f67",
       opacity: 0.16,
     },
     {
       points: [
-        [55.82, 20.48],
-        [55.76, 21.78],
-        [55.52, 21.7],
-        [55.56, 20.4],
+        [bounds.south + latSpan * 0.32, bounds.west],
+        [bounds.south + latSpan * 0.52, bounds.east],
+        [bounds.south + latSpan * 0.68, bounds.east],
+        [bounds.south + latSpan * 0.48, bounds.west],
       ],
       fill: "#0b6b88",
       opacity: 0.18,
     },
     {
       points: [
-        [55.56, 20.4],
-        [55.52, 21.7],
-        [55.24, 21.55],
-        [55.28, 20.36],
+        [bounds.south + latSpan * 0.62, bounds.west],
+        [bounds.south + latSpan * 0.8, bounds.east],
+        [bounds.north, bounds.east],
+        [bounds.south + latSpan * 0.84, bounds.west],
       ],
       fill: "#0891b2",
       opacity: 0.2,
@@ -459,6 +508,7 @@ function createReliefOverlay() {
 
   reliefBands.forEach((band) => {
     L.polygon(band.points, {
+      pane: "reliefPane",
       color: band.fill,
       fillColor: band.fill,
       fillOpacity: band.opacity,
@@ -469,24 +519,21 @@ function createReliefOverlay() {
       .addTo(reliefLayer);
   });
 
-  [
-    [
-      [55.96, 20.68],
-      [55.72, 20.95],
-      [55.58, 21.28],
-      [55.46, 21.58],
-    ],
-    [
-      [55.88, 20.52],
-      [55.62, 20.78],
-      [55.42, 21.02],
-      [55.28, 21.34],
-    ],
-  ].forEach((ridge) => {
+  [0.34, 0.58, 0.78].forEach((ratio, index) => {
+    const ridge = Array.from({ length: 8 }, (_, step) => {
+      const xRatio = step / 7;
+      const latOffset = Math.sin((step + index) * 0.9) * latSpan * 0.04;
+      return [
+        bounds.south + latSpan * ratio + latOffset,
+        bounds.west + lngSpan * xRatio,
+      ];
+    });
+
     L.polyline(ridge, {
+      pane: "reliefPane",
       color: "#d9f99d",
       weight: 3,
-      opacity: 0.52,
+      opacity: 0.48,
     }).addTo(reliefLayer);
   });
 }
@@ -499,6 +546,12 @@ function renderMarineLayers() {
   createReliefOverlay();
   createDepthMarkers();
   createSonarOverlay();
+}
+
+// LT: Atideda sluoksnių perpiešimą, kad greitai judinant žemėlapį nebūtų per daug darbo. / EN: Delays layer redraws so fast map movement does not do too much work.
+function scheduleMarineLayerRender() {
+  window.clearTimeout(marineLayerRenderTimer);
+  marineLayerRenderTimer = window.setTimeout(renderMarineLayers, 120);
 }
 
 // LT: Atnaujina GPS žymeklį žemėlapyje ir nubrėžia vartotojo judėjimo taką. / EN: Updates the GPS marker on the map and draws the user's movement track.
@@ -795,6 +848,8 @@ function setupUI() {
     updateWaypointModeUI(false);
     addRoutePoint(e);
   });
+
+  map.on("moveend zoomend", scheduleMarineLayerRender);
 
   // LT: Kalbos ir temos perjungimo mygtukai. / EN: Language and theme toggle buttons.
   const langToggle = document.getElementById("lang-toggle");
