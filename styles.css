@@ -1,4 +1,5 @@
-/* App style file / Appo stiliaus faile */
+/* LT: App stiliaus failas. / EN: App style file. */
+/* LT: Pagrindiniai dizaino kintamieji tamsiai temai. / EN: Main design variables for the dark theme. */
 :root {
     --bg: #0b1928;
     --panel: rgba(12, 23, 42, 0.92);
@@ -30,6 +31,7 @@ html, body {
     color: var(--text);
 }
 
+/* LT: Šviesios temos spalvos perrašo tuos pačius kintamuosius. / EN: Light theme colors override the same variables. */
 :root[data-theme="light"] {
     --bg: #f4fbff;
     --panel: rgba(255, 255, 255, 0.94);
@@ -61,6 +63,7 @@ button {
     cursor: pointer;
 }
 
+/* LT: Bendras puslapio išdėstymas: šoninis valdymas ir žemėlapis. / EN: Overall page layout: side controls and map. */
 .app-shell {
     display: grid;
     grid-template-columns: minmax(280px, 380px) 1fr;
@@ -75,6 +78,7 @@ button {
     gap: 1rem;
 }
 
+/* LT: Bendras kortelių stilius meniu ir informaciniams blokams. / EN: Shared card style for menu and information blocks. */
 .card {
     background: var(--panel);
     border: 1px solid var(--border);
@@ -106,6 +110,7 @@ button {
     line-height: 1.6;
 }
 
+/* LT: Pagrindiniai meniu mygtukai kairėje pusėje. / EN: Main menu buttons on the left side. */
 .nav-tabs {
     display: grid;
     gap: 0.9rem;
@@ -127,6 +132,7 @@ button {
     background: linear-gradient(135deg, rgba(53,179,255,0.22), rgba(45,212,165,0.12));
 }
 
+/* LT: Modalinis meniu langas, kuris atsidaro virš žemėlapio. / EN: Modal menu window that opens above the map. */
 .menu-window {
     position: fixed;
     inset: 0;
@@ -176,6 +182,7 @@ button {
     gap: 1rem;
 }
 
+/* LT: Leaflet žemėlapio konteineris privalo turėti aukštį, kitaip žemėlapis nesimatys. / EN: The Leaflet map container must have height, otherwise the map will not appear. */
 #map {
     min-height: 70vh;
     height: calc(100vh - 13rem);
@@ -185,6 +192,7 @@ button {
     box-shadow: var(--shadow);
 }
 
+/* LT: Mažos etiketės ant žemėlapio gyliams ir sonaro centrui. / EN: Small map labels for depths and the sonar center. */
 .depth-label,
 .sonar-label {
     border: 1px solid rgba(255,255,255,0.34);
@@ -205,7 +213,7 @@ button {
     background: rgba(45, 212, 165, 0.92);
 }
 
-/* Leaflet: popups/styles theme sync */
+/* LT: Leaflet popup stiliai sinchronizuojami su tema. / EN: Leaflet popup styles are synced with the theme. */
 .leaflet-container {
     background: transparent;
 }
@@ -228,6 +236,7 @@ button {
 }
 
 
+/* LT: Informacinės kortelės po žemėlapiu. / EN: Information cards below the map. */
 .info-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -256,6 +265,7 @@ button {
     line-height: 1.5;
 }
 
+/* LT: Nustatymų formos laukai modaliniame lange. / EN: Settings form fields inside the modal window. */
 .fieldset {
     display: grid;
     gap: 0.75rem;
@@ -330,6 +340,7 @@ footer {
     font-size: 0.92rem;
 }
 
+/* LT: Bendra klasė paslėpti panelius ir modalinį langą. / EN: Shared class for hiding panels and the modal window. */
 .hidden {
     display: none !important;
 }

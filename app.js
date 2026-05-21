@@ -4,6 +4,7 @@
     EN: map layers, location updates, route planning, and offline download simulation are handled here.
 */
 
+// LT: Saugo vartotojo GPS žymeklį, tikslumo apskritimą ir judėjimo istoriją. / EN: Stores the user's GPS marker, accuracy circle, and movement history.
 const currentPosition = {
   marker: null,
   accuracyCircle: null,
@@ -11,6 +12,7 @@ const currentPosition = {
   positions: [],
 };
 
+// LT: Saugo rankiniu būdu sudėtus maršruto taškus ir juos jungiančią liniją. / EN: Stores manually added route waypoints and the line connecting them.
 const routeState = {
   markers: [],
   line: null,
@@ -19,6 +21,7 @@ const routeState = {
 let waypointMode = false;
 let layerControl = null;
 
+// LT: Kalba ir tema išsaugomos naršyklėje, kad perkrovus puslapį pasirinkimai liktų. / EN: Language and theme are saved in the browser so choices remain after reload.
 let lang = "lt";
 let theme = "dark";
 if (typeof window !== "undefined" && window.localStorage) {
@@ -32,6 +35,7 @@ if (typeof document !== "undefined") {
   document.documentElement.lang = lang;
 }
 
+// LT: Visi matomi UI tekstai laikomi vienoje vietoje, kad kalbos keitimas būtų paprastas. / EN: All visible UI strings are kept in one place to make language switching simple.
 const TEXT = {
   lt: {
     appDescription:
@@ -179,11 +183,13 @@ function setText(id, value) {
   if (element) element.textContent = value;
 }
 
+// LT: Atnaujina temos atributą ant <html> ir pakeičia temos mygtuko tekstą. / EN: Updates the theme attribute on <html> and changes the theme button text.
 function renderTheme() {
   document.documentElement.dataset.theme = theme;
   setText("theme-toggle", theme === "dark" ? TEXT[lang].themeLight : TEXT[lang].themeDark);
 }
 
+// LT: Perrašo visus matomus tekstus pagal pasirinktą kalbą. / EN: Rewrites all visible text based on the selected language.
 function renderAllTexts() {
   const t = TEXT[lang];
   const navButtons = document.querySelectorAll(".nav-tabs button");
@@ -245,12 +251,14 @@ const boatSettings = {
   units: "metric",
 };
 
+// LT: Pagrindinis Leaflet žemėlapis. Centras nustatytas ties Lietuvos pajūriu. / EN: Main Leaflet map centered near the Lithuanian coast.
 const map = L.map("map", {
   center: [55.7, 21.1],
   zoom: 7,
   zoomControl: false,
 });
 
+// LT: Baziniai žemėlapio sluoksniai, kuriuos galima pasirinkti dešinėje valdiklyje. / EN: Base map layers selectable from the control on the right.
 const baseLayers = {
   Default: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "© OpenStreetMap contributors",
@@ -269,6 +277,7 @@ const baseLayers = {
   ),
 };
 
+// LT: Atskiri sluoksniai leidžia įjungti/išjungti gylius, sonarą ir dugno reljefą. / EN: Separate layers allow depths, sonar, and seabed relief to be toggled on or off.
 const sonarLayer = L.layerGroup();
 const depthLayer = L.layerGroup();
 const reliefLayer = L.layerGroup();
@@ -279,6 +288,7 @@ reliefLayer.addTo(map);
 depthLayer.addTo(map);
 sonarLayer.addTo(map);
 
+// LT: Perkuria Leaflet sluoksnių valdiklį, kad jo pavadinimai pasikeistų keičiant kalbą. / EN: Rebuilds the Leaflet layer control so labels update when the language changes.
 function renderLayerControl() {
   const t = TEXT[lang] || TEXT.lt;
 
@@ -305,6 +315,7 @@ function renderLayerControl() {
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
+// LT: Sukuria matomus gylių taškus, gylio etiketes ir kontūrų linijas. / EN: Creates visible depth points, depth labels, and contour lines.
 function createDepthMarkers() {
   const points = [
     { lat: 55.88, lng: 20.78, depth: 18 },
@@ -339,6 +350,7 @@ function createDepthMarkers() {
     }).addTo(depthLayer);
   });
 
+  // LT: Kontūrų linijos imituoja gylio žemėlapio izobatas. / EN: Contour lines simulate depth-chart isobaths.
   [
     [
       [55.95, 20.7],
@@ -368,6 +380,7 @@ function createDepthMarkers() {
   });
 }
 
+// LT: Sukuria sonaro žiedus, spindulį ir centrinę SONAR etiketę. / EN: Creates sonar rings, a sweep line, and the central SONAR label.
 function createSonarOverlay() {
   const center = [55.75, 21.1];
   const rings = [9000, 18000, 27000];
@@ -385,6 +398,7 @@ function createSonarOverlay() {
       .addTo(sonarLayer);
   });
 
+  // LT: Spindulys parodo sonaro skenavimo kryptį. / EN: The sweep line shows the sonar scan direction.
   [
     [55.75, 21.1],
     [55.98, 21.32],
@@ -408,6 +422,7 @@ function createSonarOverlay() {
   }).addTo(sonarLayer);
 }
 
+// LT: Sukuria supaprastintą šešėliuotą dugno reljefą iš poligonų ir keterų linijų. / EN: Creates simplified shaded seabed relief from polygons and ridge lines.
 function createReliefOverlay() {
   const reliefBands = [
     {
@@ -476,6 +491,7 @@ function createReliefOverlay() {
   });
 }
 
+// LT: Perpiešia jūrinius sluoksnius, kai reikia atnaujinti popup tekstus ar kalbą. / EN: Redraws marine layers when popup text or language must be refreshed.
 function renderMarineLayers() {
   depthLayer.clearLayers();
   sonarLayer.clearLayers();
@@ -485,6 +501,7 @@ function renderMarineLayers() {
   createSonarOverlay();
 }
 
+// LT: Atnaujina GPS žymeklį žemėlapyje ir nubrėžia vartotojo judėjimo taką. / EN: Updates the GPS marker on the map and draws the user's movement track.
 function updatePositionMarker(lat, lng, accuracy) {
   if (!currentPosition.marker) {
     currentPosition.marker = L.circleMarker([lat, lng], {
@@ -524,6 +541,7 @@ function updatePositionMarker(lat, lng, accuracy) {
     TEXT[lang].gpsStatusActive(lat, lng);
 }
 
+// LT: Parodo instrukciją, kai vartotojas įjungia maršruto taško pridėjimo režimą. / EN: Shows instructions when waypoint placement mode is enabled.
 function updateWaypointModeUI(isOn) {
   const t = TEXT[lang] || TEXT.lt;
   const gpsStatus = document.getElementById("gps-status");
@@ -536,6 +554,7 @@ function updateWaypointModeUI(isOn) {
   }
 }
 
+// LT: Paleidžia naršyklės geolokaciją ir perduoda gautas koordinates žemėlapiui. / EN: Starts browser geolocation and passes received coordinates to the map.
 function geolocate() {
   if (!navigator.geolocation) {
     document.getElementById("gps-status").textContent = TEXT[lang].gpsUnavailable;
@@ -561,6 +580,7 @@ function geolocate() {
   );
 }
 
+// LT: Perskaito laivo nustatymus iš formos laukų ir atnaujina santrauką. / EN: Reads boat settings from form fields and updates the summary.
 function setBoatSettingsFromUI() {
   boatSettings.length = Number(document.getElementById("boat-length").value);
   boatSettings.speed = Number(document.getElementById("boat-speed").value);
@@ -571,6 +591,7 @@ function setBoatSettingsFromUI() {
   renderBoatPreview();
 }
 
+// LT: Parodo apytikslę ridą pagal greitį, kuro sąnaudas ir pasirinktus vienetus. / EN: Shows estimated range based on speed, fuel use, and selected units.
 function renderBoatPreview() {
   const t = TEXT[lang] || TEXT.lt;
   const speed = boatSettings.speed;
@@ -583,6 +604,7 @@ function renderBoatPreview() {
     t.boatRange(range, labelUnit);
 }
 
+// LT: Haversine formulė skaičiuoja atstumą tarp dviejų koordinačių kilometrais. / EN: The Haversine formula calculates distance between two coordinates in kilometers.
 function distanceBetweenCoords(lat1, lng1, lat2, lng2) {
   const toRad = (angle) => (angle * Math.PI) / 180;
   const R = 6371;
@@ -598,6 +620,7 @@ function distanceBetweenCoords(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
+// LT: Prideda naują tempiamą maršruto tašką paspaustoje žemėlapio vietoje. / EN: Adds a new draggable route waypoint at the clicked map location.
 function addRoutePoint(event) {
   const position = event.latlng;
   const marker = L.marker(position, {
@@ -610,6 +633,7 @@ function addRoutePoint(event) {
   refreshRoute();
 }
 
+// LT: Perbraižo maršruto liniją ir perskaičiuoja bendrą maršruto ilgį. / EN: Redraws the route line and recalculates total route distance.
 function refreshRoute() {
   const positions = routeState.markers.map((marker) => marker.getLatLng());
   if (routeState.line) {
@@ -638,6 +662,7 @@ function refreshRoute() {
   }
 }
 
+// LT: Pašalina visus maršruto taškus ir liniją iš žemėlapio. / EN: Removes all route waypoints and the route line from the map.
 function clearRoute() {
   routeState.markers.forEach((marker) => map.removeLayer(marker));
   routeState.markers = [];
@@ -648,6 +673,7 @@ function clearRoute() {
   document.getElementById("route-distance").textContent = TEXT[lang].routeEmpty;
 }
 
+// LT: Išsaugo dabartinį žemėlapio centrą, mastelį ir ribas localStorage saugykloje. / EN: Saves the current map center, zoom, and bounds in localStorage.
 function downloadOfflineArea() {
   const bounds = map.getBounds();
   const offlineData = {
@@ -662,6 +688,7 @@ function downloadOfflineArea() {
   document.getElementById("offline-status").textContent = TEXT[lang].offlineSaved;
 }
 
+// LT: Atkuria anksčiau išsaugotą offline zoną, jei tokia yra. / EN: Restores the previously saved offline area when one exists.
 function loadOfflineArea() {
   const offlineData = localStorage.getItem("marine-navigator-offline");
   if (!offlineData) {
@@ -674,6 +701,7 @@ function loadOfflineArea() {
   document.getElementById("offline-status").textContent = TEXT[lang].offlineLoaded;
 }
 
+// LT: Atidaro pasirinktą meniu panelį modaliniame lange virš žemėlapio. / EN: Opens the selected menu panel in a modal window above the map.
 function activateTab(tabName) {
   const t = TEXT[lang] || TEXT.lt;
   const menuWindow = document.getElementById("menu-window");
@@ -702,6 +730,7 @@ function activateTab(tabName) {
   }
 }
 
+// LT: Uždaro modalinį meniu ir nuima aktyvų meniu mygtuko pažymėjimą. / EN: Closes the modal menu and clears the active menu button state.
 function closeMenu() {
   const menuWindow = document.getElementById("menu-window");
   if (!menuWindow) return;
@@ -713,6 +742,7 @@ function closeMenu() {
   });
 }
 
+// LT: Vienoje vietoje prijungia visus mygtukus, formų laukus ir klaviatūros veiksmus. / EN: Wires all buttons, form fields, and keyboard actions in one place.
 function setupUI() {
   document
     .getElementById("boat-length")
@@ -747,7 +777,7 @@ function setupUI() {
     if (event.key === "Escape") closeMenu();
   });
 
-  // Correct button wiring by ID (avoid picking the first .btn-light/.btn-strong)
+  // LT: Mygtukai jungiami pagal ID, kad nebūtų supainioti su kitais tokios pačios klasės mygtukais. / EN: Buttons are wired by ID so they are not confused with other buttons using the same class.
   const gpsStartBtn = document.getElementById("gps-start");
   if (gpsStartBtn) gpsStartBtn.addEventListener("click", geolocate);
 
@@ -766,7 +796,7 @@ function setupUI() {
     addRoutePoint(e);
   });
 
-  // Language/theme toggles
+  // LT: Kalbos ir temos perjungimo mygtukai. / EN: Language and theme toggle buttons.
   const langToggle = document.getElementById("lang-toggle");
   if (langToggle) {
     langToggle.addEventListener("click", () => {

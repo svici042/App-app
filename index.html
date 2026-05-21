@@ -9,6 +9,7 @@
 </head>
 <body>
     <div class="app-shell">
+        <!-- LT: Kairysis valdymo blokas: kalba, tema ir meniu mygtukai. / EN: Left control area: language, theme, and menu buttons. -->
         <section class="sidebar">
             <article class="card header-card">
                 <div>
@@ -28,6 +29,7 @@
                 </div>
             </article>
 
+            <!-- LT: Modalinis meniu langas: atidaromas paspaudus vieną iš meniu mygtukų. / EN: Modal menu window opened by clicking one of the menu buttons. -->
             <div class="menu-window hidden" id="menu-window" aria-hidden="true">
                 <div class="menu-dialog" role="dialog" aria-modal="true" aria-labelledby="menu-title">
                     <div class="menu-bar">
@@ -35,6 +37,7 @@
                         <button class="icon-btn" type="button" id="close-menu" aria-label="Uždaryti">×</button>
                     </div>
 
+            <!-- LT: Navigacijos panelis: GPS ir maršruto valdymas. / EN: Navigation panel for GPS and route controls. -->
             <article class="card tab-panel hidden" id="tab-navigation">
                 <h3 id="gps-title">Realaus laiko GPS</h3>
                 <p id="gps-status">...</p>
@@ -49,6 +52,7 @@
                 </div>
             </article>
 
+            <!-- LT: Žemėlapių panelis: paaiškina gylių, sonaro ir reljefo sluoksnius. / EN: Charts panel explaining depth, sonar, and relief layers. -->
             <article class="card tab-panel hidden" id="tab-charts">
                 <h3 id="charts-title">Žemėlapio sluoksniai</h3>
                 <p class="small-note" id="charts-description">Matomi gyliai, sonaro zona ir šešėliuotas dugno reljefas.</p>
@@ -58,6 +62,7 @@
                 </div>
             </article>
 
+            <!-- LT: Nustatymų panelis: laivo parametrai naudojami ridos skaičiavimui. / EN: Settings panel where boat parameters are used for range estimates. -->
             <article class="card tab-panel hidden" id="tab-settings">
                 <h3 id="boat-settings-title">Laivo nustatymai</h3>
                 <div class="fieldset">
@@ -76,6 +81,7 @@
                 </div>
             </article>
 
+            <!-- LT: Offline panelis: saugo ir atkuria dabartinę žemėlapio zoną. / EN: Offline panel for saving and restoring the current map area. -->
             <article class="card tab-panel hidden" id="tab-offline">
                 <h3 id="offline-title">Offline funkcijos</h3>
                 <p class="small-note" id="offline-description">Išsaugokite pasirinktą sritį naudodami vietinę saugyklą.</p>
@@ -92,6 +98,7 @@
             </div>
         </section>
 
+        <!-- LT: Pagrindinė darbo zona: Leaflet žemėlapis ir trumpa sluoksnių informacija. / EN: Main workspace: Leaflet map and short layer information. -->
         <section class="map-panel">
             <div id="map"></div>
             <div class="info-grid">
