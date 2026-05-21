@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Jūrinė Navigacija</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha512-sA+ePHp01VXBwc1ZKbQGxnTiPRLtEsszfF+lGmdzFh5mM1WL9bHujbQ5WQbWneJ6d5vhNLTtkvY2/7hF9qIXzw==" crossorigin=""/>
+</head>
+<body>
+    <div class="app-shell">
+        <section class="sidebar">
+            <article class="card header-card">
+                <div>
+                    <h1>Marine Navigator</h1>
+                    <p>LT: Interaktyvi navigacijos programa jūrai, GPS/GLONASS ir maršrutų planavimo funkcijomis. EN: Responsive sea navigation app with real-time location and route planning.</p>
+                </div>
+                <div class="nav-tabs">
+                    <button class="active" data-tab="tab-navigation">Navigacija / Navigation</button>
+                    <button data-tab="tab-charts">Žemėlapiai / Charts</button>
+                    <button data-tab="tab-settings">Nustatymai / Settings</button>
+                    <button data-tab="tab-offline">Offline / Download</button>
+                </div>
+            </article>
+
+            <article class="card tab-panel" id="tab-navigation">
+                <h3>Realaus laiko GPS / Real-time GPS</h3>
+                <p id="gps-status">...</p>
+                <div class="actions">
+                    <button class="btn-strong" type="button">Paleisti GPS / Start GPS</button>
+                    <button class="btn-light" type="button">Pridėti maršruto tašką / Add waypoint</button>
+                </div>
+                <div class="info-card">
+                    <h3>Maršruto atstumas</h3>
+                    <p id="route-distance">Maršrutas tuščias / Route empty</p>
+                </div>
+            </article>
+
+            <article class="card tab-panel hidden" id="tab-charts">
+                <h3>Žemėlapio sluoksniai / Map layers</h3>
+                <p class="small-note">LT: Rinkitės satelitą, reljefą, sonarą ar gylio žemėlapį. EN: Choose satellite, terrain, sonar or depth overlay.</p>
+                <div class="info-card">
+                    <h3>Gyliai / Depths</h3>
+                    <p>LT: Spustelėkite žemėlapyje vietą norėdami pridėti maršruto tašką. EN: Click the map to place a route point.</p>
+                </div>
+            </article>
+
+            <article class="card tab-panel hidden" id="tab-settings">
+                <h3>Laivo nustatymai / Boat settings</h3>
+                <div class="fieldset">
+                    <label>Laivo ilgis (m)<input id="boat-length" type="number" min="5" max="40" value="12"></label>
+                    <label>Greitis (kn)<input id="boat-speed" type="number" min="5" max="45" value="18"></label>
+                    <label>Kuro sąnaudos (l/h)<input id="boat-consumption" type="number" min="5" max="120" value="35"></label>
+                    <label>Išmatavimų vienetai<select id="distance-unit">
+                        <option value="metric">Metric / km</option>
+                        <option value="imperial">Imperial / mi</option>
+                    </select></label>
+                </div>
+                <div class="info-card">
+                    <h3>Sąmatos</h3>
+                    <p id="boat-summary">...</p>
+                    <p id="boat-range">...</p>
+                </div>
+            </article>
+
+            <article class="card tab-panel hidden" id="tab-offline">
+                <h3>Offline funkcijos</h3>
+                <p class="small-note">LT: Išsaugokite pasirinktą sritį naudodami vietinę saugyklą. EN: Save selected area for offline use.</p>
+                <div class="actions">
+                    <button class="btn-strong" id="download-offline" type="button">Parsisiųsti zoną / Download area</button>
+                    <button class="btn-light" id="load-offline" type="button">Įkelti offline / Load offline</button>
+                </div>
+                <div class="info-card">
+                    <h3>Statusas</h3>
+                    <p id="offline-status">Laukia / Waiting</p>
+                </div>
+            </article>
+        </section>
+
+        <section class="map-panel">
+            <div id="map"></div>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h3>Jūrinis žemėlapis / Marine chart</h3>
+                    <p>LT: Pagrindinis žemėlapis rodo jūrų gylį, navigacijos maršrutus ir realią vietą. EN: Main map displays depths, routes, and live position.</p>
+                </div>
+                <div class="info-card">
+                    <h3>3D pogėris / 3D terrain</h3>
+                    <p>LT: 3D stilius leidžia peržiūrėti reljefą ir dugno formas. EN: 3D style overlays terrain and seabed features.</p>
+                </div>
+            </div>
+            <footer>LT: Palieskite žemėlapį, kad pridėtumėte maršruto tašką. EN: Tap the map to add route waypoints.</footer>
+        </section>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha512-XQoYMqMTK8LvdlxUMyMM8Mf4I6j0s7VvBvjrckkC2uPSKQooV3Vg1kg7VEncb8LvZM2jZYjT1A/3h4tXwKr3sg==" crossorigin=""></script>
+    <script src="app.js"></script>
+</body>
+</html>
