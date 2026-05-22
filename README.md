@@ -7,9 +7,10 @@
 ### Funkcijos
 
 - Realaus laiko GPS vieta su `navigator.geolocation.watchPosition`.
-- Dinaminiai gyliai visame matomame žemėlapio plote, ne tik prie Lietuvos.
-- Sonaro sluoksnis su žiedais, skenavimo kryptimi ir `SONAR` etikete.
-- Supaprastintas 3D dugno reljefas, persipiešiantis pagal dabartinę žemėlapio zoną.
+- Realūs batimetrijos sluoksniai iš EMODnet WMS.
+- Realus gylio mėginys iš EMODnet REST serviso paspaudus žemėlapį.
+- Matavimų / šaltinių sluoksnis iš EMODnet Bathymetry.
+- GEBCO WMS shaded relief sluoksnis tikram dugno reljefui.
 - Baziniai žemėlapio sluoksniai: pagrindinis, satelitas ir reljefas.
 - Maršruto taškų pridėjimas paspaudus žemėlapį.
 - Maršruto atstumo skaičiavimas ir maršruto išvalymas.
@@ -30,7 +31,7 @@ Rekomenduojama naudoti Live Server, nes GPS leidimai ir išoriniai žemėlapių 
 
 - Programa naudoja išorinius žemėlapių šaltinius, todėl reikalingas interneto ryšys.
 - Jei žemėlapis nerodomas, patikrinkite ar naršyklė arba plėtiniai neblokuoja `unpkg.com`, `openstreetmap.org` arba `arcgisonline.com`.
-- Gylių, sonaro ir 3D reljefo sluoksniai yra vizualinė simuliacija, skirta aplikacijos demonstracijai.
+- Batimetrijos sluoksniai priklauso nuo išorinių EMODnet ir GEBCO servisų ir nėra skirti realiems navigacijos saugumo sprendimams.
 
 ## EN
 
@@ -39,9 +40,10 @@ Rekomenduojama naudoti Live Server, nes GPS leidimai ir išoriniai žemėlapių 
 ### Features
 
 - Real-time GPS location with `navigator.geolocation.watchPosition`.
-- Dynamic depth markers across the whole visible map area, not only near Lithuania.
-- Sonar overlay with rings, scan direction, and a `SONAR` label.
-- Simplified 3D seabed relief that redraws based on the current map view.
+- Real bathymetry from EMODnet WMS layers.
+- Real depth sample lookup from the EMODnet REST service when clicking the map.
+- Survey/source reference overlay from EMODnet Bathymetry.
+- GEBCO WMS shaded relief layer for real seabed terrain.
 - Base map layers: default, satellite, and terrain.
 - Add route waypoints by clicking the map.
 - Route distance calculation and route clearing.
@@ -62,7 +64,7 @@ Live Server is recommended because GPS permissions and external map layers work 
 
 - The app uses external map sources, so an internet connection is required.
 - If the map does not appear, check whether the browser or extensions are blocking `unpkg.com`, `openstreetmap.org`, or `arcgisonline.com`.
-- Depth, sonar, and 3D relief layers are a visual simulation for app demonstration.
+- Bathymetry layers depend on external EMODnet and GEBCO services and are not intended for real navigation safety decisions.
 
 ## LovLaus Copyright
 

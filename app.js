@@ -20,7 +20,7 @@ const routeState = {
 
 let waypointMode = false;
 let layerControl = null;
-let marineLayerRenderTimer = null;
+let gpsWatchId = null;
 
 // LT: Kalba ir tema išsaugomos naršyklėje, kad perkrovus puslapį pasirinkimai liktų. / EN: Language and theme are saved in the browser so choices remain after reload.
 let lang = "lt";
@@ -52,11 +52,13 @@ const TEXT = {
     baseSatellite: "Satelitas",
     baseTerrain: "Reljefas",
     overlayDepths: "Gyliai",
-    overlaySonar: "Sonaras",
+    overlayContours: "Gylio kontūrai",
+    overlaySonar: "Matavimų šaltiniai",
     overlayRelief: "3D dugno reljefas",
     closeMenu: "Uždaryti",
     gpsTitle: "Realaus laiko GPS",
     gpsStart: "Paleisti GPS",
+    gpsAlreadyActive: "GPS jau paleistas.",
     addWaypoint: "Pridėti maršruto tašką",
     clearRoute: "Išvalyti maršrutą",
     gpsUnavailable: "GPS nepasiekiamas",
@@ -71,10 +73,10 @@ const TEXT = {
       "Spustelėkite žemėlapį, kad pridėtumėte maršruto tašką.",
     chartsTitle: "Žemėlapio sluoksniai",
     chartsDescription:
-      "Matomi gyliai, sonaro zona ir šešėliuotas dugno reljefas.",
+      "Matomi realūs EMODnet gyliai, gylio kontūrai, matavimų šaltiniai ir GEBCO dugno reljefas.",
     depthsTitle: "Gyliai",
     depthsDescription:
-      "Mėlyni taškai ir kontūrai rodo apytikrius gylio matavimus.",
+      "Gyliai kraunami iš EMODnet Bathymetry WMS ir REST servisų.",
     boatSettingsTitle: "Laivo nustatymai",
     boatLengthLabel: "Laivo ilgis (m)",
     boatSpeedLabel: "Greitis (kn)",
@@ -97,15 +99,16 @@ const TEXT = {
     offlineNoData: "Nėra išsaugotų offline duomenų.",
     marineChartTitle: "Jūrinis žemėlapis",
     marineChartDescription:
-      "Pagrindinis žemėlapis rodo gylius, sonaro zoną, dugno reljefą, maršrutus ir realią vietą.",
+      "Pagrindinis žemėlapis rodo realius batimetrijos sluoksnius, maršrutus ir realią vietą.",
     terrainTitle: "3D dugno reljefas",
     terrainDescription:
-      "Šešėliuotas reljefo sluoksnis paryškina dugno formas ir gylio kontūrus.",
+      "GEBCO shaded relief sluoksnis paryškina tikrą dugno reljefą.",
     footer:
       "Palieskite žemėlapį, kad pridėtumėte maršruto tašką.",
-    depthPopup: (depth) => `Gylis: ${depth} m`,
-    sonarPopup: "Sonaro skenavimo zona",
-    reliefPopup: "3D dugno reljefo zona",
+    depthPopup: (depth) => `Realus EMODnet gylis: ${depth} m`,
+    depthPopupError: "Nepavyko gauti gylio šiame taške.",
+    depthPopupLoading: "Gaunamas realus gylis...",
+    depthPopupNoData: "Šiame taške gylio duomenų nėra.",
     waypointPopup: "Maršruto taškas",
     locationPopup: "Jūsų vieta",
   },
@@ -123,11 +126,13 @@ const TEXT = {
     baseSatellite: "Satellite",
     baseTerrain: "Terrain",
     overlayDepths: "Depths",
-    overlaySonar: "Sonar",
+    overlayContours: "Depth contours",
+    overlaySonar: "Survey sources",
     overlayRelief: "3D seabed relief",
     closeMenu: "Close",
     gpsTitle: "Real-time GPS",
     gpsStart: "Start GPS",
+    gpsAlreadyActive: "GPS is already active.",
     addWaypoint: "Add waypoint",
     clearRoute: "Clear route",
     gpsUnavailable: "GPS unavailable",
@@ -141,10 +146,10 @@ const TEXT = {
     waypointModeHint: "Click the map to add waypoint.",
     chartsTitle: "Map layers",
     chartsDescription:
-      "Depths, sonar zone, and shaded seabed relief are visible on the map.",
+      "Real EMODnet depths, depth contours, survey sources, and GEBCO seabed relief are visible on the map.",
     depthsTitle: "Depths",
     depthsDescription:
-      "Blue markers and contour lines show approximate depth readings.",
+      "Depths are loaded from EMODnet Bathymetry WMS and REST services.",
     boatSettingsTitle: "Boat settings",
     boatLengthLabel: "Boat length (m)",
     boatSpeedLabel: "Speed (kn)",
@@ -166,14 +171,15 @@ const TEXT = {
     offlineNoData: "No offline data found.",
     marineChartTitle: "Marine chart",
     marineChartDescription:
-      "The main chart shows depths, sonar area, seabed relief, routes, and live position.",
+      "The main chart shows real bathymetry layers, routes, and live position.",
     terrainTitle: "3D seabed relief",
     terrainDescription:
-      "The shaded relief layer highlights seabed forms and depth contours.",
+      "The GEBCO shaded relief layer highlights real seabed terrain.",
     footer: "Tap the map to add route waypoints.",
-    depthPopup: (depth) => `Depth: ${depth} m`,
-    sonarPopup: "Sonar scanning zone",
-    reliefPopup: "3D seabed relief area",
+    depthPopup: (depth) => `Real EMODnet depth: ${depth} m`,
+    depthPopupError: "Could not retrieve depth for this point.",
+    depthPopupLoading: "Loading real depth...",
+    depthPopupNoData: "No depth data at this point.",
     waypointPopup: "Route waypoint",
     locationPopup: "Your location",
   },
@@ -262,10 +268,12 @@ const map = L.map("map", {
 // LT: Atskiri pane sluoksniai užtikrina, kad reljefas, gyliai ir sonaras būtų matomi virš bazinio žemėlapio. / EN: Separate panes ensure relief, depths, and sonar stay visible above the base map.
 map.createPane("reliefPane");
 map.createPane("depthPane");
+map.createPane("contourPane");
 map.createPane("sonarPane");
 map.getPane("reliefPane").style.zIndex = 430;
 map.getPane("depthPane").style.zIndex = 440;
-map.getPane("sonarPane").style.zIndex = 450;
+map.getPane("contourPane").style.zIndex = 450;
+map.getPane("sonarPane").style.zIndex = 460;
 
 // LT: Baziniai žemėlapio sluoksniai, kuriuos galima pasirinkti dešinėje valdiklyje. / EN: Base map layers selectable from the control on the right.
 const baseLayers = {
@@ -286,15 +294,45 @@ const baseLayers = {
   ),
 };
 
-// LT: Atskiri sluoksniai leidžia įjungti/išjungti gylius, sonarą ir dugno reljefą. / EN: Separate layers allow depths, sonar, and seabed relief to be toggled on or off.
-const sonarLayer = L.layerGroup();
-const depthLayer = L.layerGroup();
-const reliefLayer = L.layerGroup();
+// LT: Realūs batimetrijos sluoksniai iš EMODnet ir GEBCO WMS servisų. / EN: Real bathymetry layers from EMODnet and GEBCO WMS services.
+const depthLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
+  layers: "mean_multicolour",
+  format: "image/png",
+  transparent: true,
+  pane: "depthPane",
+  opacity: 0.72,
+  attribution: "EMODnet Bathymetry",
+});
+const contourLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
+  layers: "contours",
+  format: "image/png",
+  transparent: true,
+  pane: "contourPane",
+  opacity: 0.95,
+  attribution: "EMODnet Bathymetry",
+});
+const sonarLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
+  layers: "source_references",
+  format: "image/png",
+  transparent: true,
+  pane: "sonarPane",
+  opacity: 0.72,
+  attribution: "EMODnet Bathymetry",
+});
+const reliefLayer = L.tileLayer.wms("https://wms.gebco.net/mapserv", {
+  layers: "GEBCO_Latest",
+  format: "image/png",
+  transparent: true,
+  pane: "reliefPane",
+  opacity: 0.58,
+  attribution: "GEBCO",
+});
 const trackLayer = L.layerGroup().addTo(map);
 
 baseLayers.Default.addTo(map);
 reliefLayer.addTo(map);
 depthLayer.addTo(map);
+contourLayer.addTo(map);
 sonarLayer.addTo(map);
 
 // LT: Perkuria Leaflet sluoksnių valdiklį, kad jo pavadinimai pasikeistų keičiant kalbą. / EN: Rebuilds the Leaflet layer control so labels update when the language changes.
@@ -314,6 +352,7 @@ function renderLayerControl() {
       },
       {
         [t.overlayDepths]: depthLayer,
+        [t.overlayContours]: contourLayer,
         [t.overlaySonar]: sonarLayer,
         [t.overlayRelief]: reliefLayer,
       },
@@ -324,234 +363,38 @@ function renderLayerControl() {
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-// LT: Apriboja skaičių tarp minimalaus ir maksimalaus, kad sluoksniai liktų stabilūs. / EN: Clamps a number between a minimum and maximum so layers stay stable.
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
+// LT: Užklausia tikrą EMODnet gylį pasirinktame taške. / EN: Requests a real EMODnet depth sample at the selected point.
+async function fetchDepthSample(latlng) {
+  const geom = `POINT(${latlng.lng} ${latlng.lat})`;
+  const url = `https://rest.emodnet-bathymetry.eu/depth_sample?geom=${encodeURIComponent(geom)}`;
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+  });
 
-// LT: Sugeneruoja pseudo gylį pagal koordinates; tai leidžia rodyti gylius visoje matomoje zonoje. / EN: Generates pseudo-depth from coordinates so depths can be shown across the visible area.
-function getDepthForPosition(lat, lng) {
-  const wave =
-    Math.sin(lat * 0.72) * 34 +
-    Math.cos(lng * 0.58) * 28 +
-    Math.sin((lat + lng) * 0.21) * 18;
-  return Math.round(clamp(Math.abs(wave) + 8, 6, 130));
-}
-
-// LT: Grąžina saugias dabartinio žemėlapio ribas, kad dinaminiai sluoksniai būtų piešiami tik matomame plote. / EN: Returns safe current map bounds so dynamic layers are drawn only inside the visible area.
-function getVisibleMapBounds() {
-  const bounds = map.getBounds();
-  return {
-    north: clamp(bounds.getNorth(), -84, 84),
-    south: clamp(bounds.getSouth(), -84, 84),
-    east: bounds.getEast(),
-    west: bounds.getWest(),
-  };
-}
-
-// LT: Sukuria taškų tinklelį per visą matomą žemėlapio plotą. / EN: Creates a point grid across the full visible map area.
-function createVisibleGrid(columns = 6, rows = 4) {
-  const bounds = getVisibleMapBounds();
-  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
-  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
-  const points = [];
-
-  for (let row = 1; row <= rows; row++) {
-    for (let col = 1; col <= columns; col++) {
-      const lat = bounds.south + (latSpan * row) / (rows + 1);
-      const lng = bounds.west + (lngSpan * col) / (columns + 1);
-      points.push({ lat, lng, depth: getDepthForPosition(lat, lng) });
-    }
+  if (!response.ok) {
+    throw new Error(`Depth request failed: ${response.status}`);
   }
 
-  return points;
+  return response.json();
 }
 
-// LT: Sukuria matomus gylių taškus, gylio etiketes ir kontūrų linijas per visą dabartinį žemėlapio vaizdą. / EN: Creates visible depth points, labels, and contour lines across the current map view.
-function createDepthMarkers() {
-  const points = createVisibleGrid(6, 4);
+// LT: Parodo realų gylį paspaustame žemėlapio taške. / EN: Shows the real depth at the clicked map point.
+async function showDepthAtPoint(event) {
+  const t = TEXT[lang] || TEXT.lt;
+  const popup = L.popup()
+    .setLatLng(event.latlng)
+    .setContent(t.depthPopupLoading)
+    .openOn(map);
 
-  points.forEach((point) => {
-    L.circleMarker([point.lat, point.lng], {
-      pane: "depthPane",
-      radius: 12,
-      fillColor: "#3dd4ff",
-      color: "#0bc8ff",
-      weight: 2,
-      opacity: 0.95,
-      fillOpacity: 0.72,
-    })
-      .bindPopup(TEXT[lang].depthPopup(point.depth))
-      .addTo(depthLayer);
-
-    L.marker([point.lat, point.lng], {
-      pane: "depthPane",
-      icon: L.divIcon({
-        className: "depth-label",
-        html: `${point.depth} m`,
-        iconSize: [48, 24],
-        iconAnchor: [24, 12],
-      }),
-      interactive: false,
-    }).addTo(depthLayer);
-  });
-
-  // LT: Kontūrų linijos imituoja gylio žemėlapio izobatas. / EN: Contour lines simulate depth-chart isobaths.
-  const bounds = getVisibleMapBounds();
-  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
-  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
-  const contourLines = [0.25, 0.5, 0.75].map((ratio, index) => {
-    const baseLat = bounds.south + latSpan * ratio;
-    return Array.from({ length: 7 }, (_, step) => {
-      const xRatio = step / 6;
-      const latOffset = Math.sin((step + index) * 1.15) * latSpan * 0.035;
-      return [baseLat + latOffset, bounds.west + lngSpan * xRatio];
-    });
-  });
-
-  contourLines.forEach((line, index) => {
-    L.polyline(line, {
-      pane: "depthPane",
-      color: ["#8be9ff", "#35b3ff", "#0876c9"][index],
-      weight: 2,
-      opacity: 0.75,
-      dashArray: index === 0 ? "4,8" : undefined,
-    }).addTo(depthLayer);
-  });
-}
-
-// LT: Sukuria sonaro žiedus, spindulį ir centrinę SONAR etiketę dabartinio vaizdo centre. / EN: Creates sonar rings, a sweep line, and the SONAR label at the center of the current view.
-function createSonarOverlay() {
-  const bounds = getVisibleMapBounds();
-  const center = map.getCenter();
-  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
-  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
-  const ringBase = clamp(Math.min(latSpan, lngSpan) * 18500, 6000, 180000);
-  const rings = [ringBase, ringBase * 2, ringBase * 3];
-
-  rings.forEach((radius) => {
-    L.circle([center.lat, center.lng], {
-      pane: "sonarPane",
-      radius,
-      color: "#2dd4a5",
-      fillColor: "#2dd4a5",
-      fillOpacity: radius === rings[rings.length - 1] ? 0.08 : 0.02,
-      weight: 2,
-      dashArray: "6,10",
-    })
-      .bindPopup(TEXT[lang].sonarPopup)
-      .addTo(sonarLayer);
-  });
-
-  // LT: Spindulys parodo sonaro skenavimo kryptį. / EN: The sweep line shows the sonar scan direction.
-  L.polyline(
-    [
-      [center.lat, center.lng],
-      [center.lat + latSpan * 0.28, center.lng + lngSpan * 0.28],
-    ],
-    {
-      pane: "sonarPane",
-      color: "#2dd4a5",
-      weight: 4,
-      opacity: 0.86,
-    },
-  ).addTo(sonarLayer);
-
-  L.marker([center.lat, center.lng], {
-    pane: "sonarPane",
-    icon: L.divIcon({
-      className: "sonar-label",
-      html: "SONAR",
-      iconSize: [70, 24],
-      iconAnchor: [35, 12],
-    }),
-  }).addTo(sonarLayer);
-}
-
-// LT: Sukuria supaprastintą šešėliuotą dugno reljefą per visą dabartinį žemėlapio vaizdą. / EN: Creates simplified shaded seabed relief across the full current map view.
-function createReliefOverlay() {
-  const bounds = getVisibleMapBounds();
-  const latSpan = Math.max(bounds.north - bounds.south, 0.1);
-  const lngSpan = Math.max(bounds.east - bounds.west, 0.1);
-  const reliefBands = [
-    {
-      points: [
-        [bounds.south + latSpan * 0.04, bounds.west],
-        [bounds.south + latSpan * 0.24, bounds.east],
-        [bounds.south + latSpan * 0.42, bounds.east],
-        [bounds.south + latSpan * 0.2, bounds.west],
-      ],
-      fill: "#113f67",
-      opacity: 0.16,
-    },
-    {
-      points: [
-        [bounds.south + latSpan * 0.32, bounds.west],
-        [bounds.south + latSpan * 0.52, bounds.east],
-        [bounds.south + latSpan * 0.68, bounds.east],
-        [bounds.south + latSpan * 0.48, bounds.west],
-      ],
-      fill: "#0b6b88",
-      opacity: 0.18,
-    },
-    {
-      points: [
-        [bounds.south + latSpan * 0.62, bounds.west],
-        [bounds.south + latSpan * 0.8, bounds.east],
-        [bounds.north, bounds.east],
-        [bounds.south + latSpan * 0.84, bounds.west],
-      ],
-      fill: "#0891b2",
-      opacity: 0.2,
-    },
-  ];
-
-  reliefBands.forEach((band) => {
-    L.polygon(band.points, {
-      pane: "reliefPane",
-      color: band.fill,
-      fillColor: band.fill,
-      fillOpacity: band.opacity,
-      weight: 1,
-      opacity: 0.35,
-    })
-      .bindPopup(TEXT[lang].reliefPopup)
-      .addTo(reliefLayer);
-  });
-
-  [0.34, 0.58, 0.78].forEach((ratio, index) => {
-    const ridge = Array.from({ length: 8 }, (_, step) => {
-      const xRatio = step / 7;
-      const latOffset = Math.sin((step + index) * 0.9) * latSpan * 0.04;
-      return [
-        bounds.south + latSpan * ratio + latOffset,
-        bounds.west + lngSpan * xRatio,
-      ];
-    });
-
-    L.polyline(ridge, {
-      pane: "reliefPane",
-      color: "#d9f99d",
-      weight: 3,
-      opacity: 0.48,
-    }).addTo(reliefLayer);
-  });
-}
-
-// LT: Perpiešia jūrinius sluoksnius, kai reikia atnaujinti popup tekstus ar kalbą. / EN: Redraws marine layers when popup text or language must be refreshed.
-function renderMarineLayers() {
-  depthLayer.clearLayers();
-  sonarLayer.clearLayers();
-  reliefLayer.clearLayers();
-  createReliefOverlay();
-  createDepthMarkers();
-  createSonarOverlay();
-}
-
-// LT: Atideda sluoksnių perpiešimą, kad greitai judinant žemėlapį nebūtų per daug darbo. / EN: Delays layer redraws so fast map movement does not do too much work.
-function scheduleMarineLayerRender() {
-  window.clearTimeout(marineLayerRenderTimer);
-  marineLayerRenderTimer = window.setTimeout(renderMarineLayers, 120);
+  try {
+    const sample = await fetchDepthSample(event.latlng);
+    const depth = sample?.smoothed ?? sample?.avg ?? sample?.min ?? null;
+    popup.setContent(
+      typeof depth === "number" ? t.depthPopup(depth.toFixed(1)) : t.depthPopupNoData,
+    );
+  } catch (error) {
+    popup.setContent(t.depthPopupError);
+  }
 }
 
 // LT: Atnaujina GPS žymeklį žemėlapyje ir nubrėžia vartotojo judėjimo taką. / EN: Updates the GPS marker on the map and draws the user's movement track.
@@ -609,12 +452,17 @@ function updateWaypointModeUI(isOn) {
 
 // LT: Paleidžia naršyklės geolokaciją ir perduoda gautas koordinates žemėlapiui. / EN: Starts browser geolocation and passes received coordinates to the map.
 function geolocate() {
+  if (gpsWatchId !== null) {
+    document.getElementById("gps-status").textContent = TEXT[lang].gpsAlreadyActive;
+    return;
+  }
+
   if (!navigator.geolocation) {
     document.getElementById("gps-status").textContent = TEXT[lang].gpsUnavailable;
     return;
   }
 
-  navigator.geolocation.watchPosition(
+  gpsWatchId = navigator.geolocation.watchPosition(
     (position) => {
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
@@ -843,13 +691,15 @@ function setupUI() {
   }
 
   map.on("click", (e) => {
-    if (!waypointMode) return;
-    waypointMode = false;
-    updateWaypointModeUI(false);
-    addRoutePoint(e);
-  });
+    if (waypointMode) {
+      waypointMode = false;
+      updateWaypointModeUI(false);
+      addRoutePoint(e);
+      return;
+    }
 
-  map.on("moveend zoomend", scheduleMarineLayerRender);
+    showDepthAtPoint(e);
+  });
 
   // LT: Kalbos ir temos perjungimo mygtukai. / EN: Language and theme toggle buttons.
   const langToggle = document.getElementById("lang-toggle");
@@ -860,7 +710,6 @@ function setupUI() {
       document.documentElement.lang = lang;
       renderAllTexts();
       renderLayerControl();
-      renderMarineLayers();
       if (routeState.markers.length) {
         refreshRoute();
       }
@@ -882,9 +731,7 @@ function setupUI() {
 
 function init() {
   renderLayerControl();
-  renderMarineLayers();
   setupUI();
-  geolocate();
   document.getElementById("gps-status").textContent = TEXT[lang].gpsStatusWaiting;
 }
 
