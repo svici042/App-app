@@ -405,6 +405,33 @@ footer {
 }
 
 @media (max-width: 640px) {
+    .leaflet-top.leaflet-right {
+        top: 0.45rem;
+        right: 0.45rem;
+    }
+
+    .leaflet-control-layers-collapsed {
+        width: 2rem;
+        height: 2rem;
+        opacity: 0.68;
+    }
+
+    .leaflet-control-layers-toggle {
+        width: 2rem !important;
+        height: 2rem !important;
+        background-size: 1rem 1rem !important;
+    }
+
+    .leaflet-control-layers-expanded {
+        max-width: min(190px, calc(100vw - 1.25rem));
+        padding: 0.5rem;
+    }
+
+    .leaflet-control-layers label {
+        font-size: 0.78rem;
+        line-height: 1.2;
+    }
+
     .info-grid {
         grid-template-columns: 1fr;
     }
