@@ -235,6 +235,56 @@ button {
     color: var(--leaflet-popup-text);
 }
 
+/* LT: Sluoksnių valdiklis suskleistas užima mažai vietos ir išsiskleidžia tik naudojant. / EN: The layer control stays compact and expands only when used. */
+.leaflet-control-layers {
+    border: 1px solid var(--border) !important;
+    border-radius: 14px;
+    background: var(--panel) !important;
+    box-shadow: var(--shadow);
+    color: var(--text);
+    overflow: hidden;
+    transition: opacity .2s ease, transform .2s ease;
+}
+
+.leaflet-control-layers-collapsed {
+    width: 2.55rem;
+    height: 2.55rem;
+    opacity: 0.76;
+}
+
+.leaflet-control-layers-collapsed:hover,
+.leaflet-control-layers-collapsed:focus-within {
+    opacity: 1;
+    transform: scale(1.03);
+}
+
+.leaflet-control-layers-expanded {
+    max-width: min(260px, calc(100vw - 2rem));
+    padding: 0.75rem;
+    opacity: 0.96;
+}
+
+.leaflet-control-layers-toggle {
+    width: 2.55rem !important;
+    height: 2.55rem !important;
+    background-size: 1.35rem 1.35rem !important;
+}
+
+.leaflet-control-layers-list {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.leaflet-control-layers label {
+    color: var(--text);
+    font-size: 0.88rem;
+    line-height: 1.3;
+}
+
+.leaflet-control-layers-separator {
+    border-top-color: var(--border);
+}
+
 
 /* LT: Informacinės kortelės po žemėlapiu. / EN: Information cards below the map. */
 .info-grid {

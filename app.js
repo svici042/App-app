@@ -356,7 +356,7 @@ function renderLayerControl() {
         [t.overlaySonar]: sonarLayer,
         [t.overlayRelief]: reliefLayer,
       },
-      { collapsed: false, position: "topright" },
+      { collapsed: true, position: "topright" },
     )
     .addTo(map);
 }
