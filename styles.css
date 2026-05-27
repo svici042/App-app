@@ -1,17 +1,17 @@
 /* LT: App stiliaus failas. / EN: App style file. */
 /* LT: Pagrindiniai dizaino kintamieji tamsiai temai. / EN: Main design variables for the dark theme. */
 :root {
-    --bg: #0b1928;
-    --panel: rgba(12, 23, 42, 0.92);
-    --panel-soft: rgba(24, 45, 76, 0.96);
-    --accent: #35b3ff;
-    --accent-2: #6ae2ff;
+    --bg: #08131f;
+    --panel: rgba(11, 22, 34, 0.94);
+    --panel-soft: rgba(19, 39, 56, 0.96);
+    --accent: #2fb8ff;
+    --accent-2: #32d6b2;
     --text: #f5f9ff;
-    --muted: #91a7bf;
+    --muted: #9fb2c5;
     --danger: #ff6b72;
     --success: #2dd4a5;
-    --shadow: 0 24px 80px rgba(3, 17, 38, 0.4);
-    --border: rgba(255,255,255,0.08);
+    --shadow: 0 18px 48px rgba(3, 17, 38, 0.36);
+    --border: rgba(255,255,255,0.1);
     --leaflet-popup-bg: #f8fbff;
     --leaflet-popup-text: #102033;
     --leaflet-popup-border: rgba(16, 32, 51, 0.14);
@@ -21,26 +21,25 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     margin: 0;
     min-height: 100%;
     font-family: 'Inter', system-ui, sans-serif;
-    background: radial-gradient(circle at top left, rgba(53, 179, 255, 0.18), transparent 38%),
-                radial-gradient(circle at bottom right, rgba(45, 212, 165, 0.12), transparent 28%),
-                linear-gradient(180deg, #08101f 0%, #08161f 100%);
+    background: linear-gradient(180deg, #08131f 0%, #0b1723 100%);
     color: var(--text);
 }
 
 /* LT: Šviesios temos spalvos perrašo tuos pačius kintamuosius. / EN: Light theme colors override the same variables. */
 :root[data-theme="light"] {
     --bg: #f4fbff;
-    --panel: rgba(255, 255, 255, 0.94);
+    --panel: rgba(255, 255, 255, 0.95);
     --panel-soft: rgba(237, 247, 255, 0.96);
     --accent: #0876c9;
     --accent-2: #008a9f;
     --text: #102033;
     --muted: #52657a;
-    --shadow: 0 24px 70px rgba(72, 111, 145, 0.18);
+    --shadow: 0 18px 44px rgba(72, 111, 145, 0.18);
     --border: rgba(13, 52, 81, 0.12);
     --leaflet-popup-bg: #ffffff;
     --leaflet-popup-text: #102033;
@@ -48,13 +47,12 @@ html, body {
 }
 
 :root[data-theme="light"] body {
-    background: radial-gradient(circle at top left, rgba(10, 132, 255, 0.16), transparent 38%),
-                radial-gradient(circle at bottom right, rgba(5, 169, 122, 0.10), transparent 28%),
-                linear-gradient(180deg, #f4fbff 0%, #eef6ff 100%);
+    background: linear-gradient(180deg, #f4fbff 0%, #eaf3f9 100%);
 }
 
-
-button, input, select {
+button,
+input,
+select {
     font: inherit;
 }
 
@@ -63,63 +61,64 @@ button {
     cursor: pointer;
 }
 
-/* LT: Bendras puslapio išdėstymas: šoninis valdymas ir žemėlapis. / EN: Overall page layout: side controls and map. */
+/* LT: Siauresnis valdymo blokas palieka daugiau vietos žemėlapiui. / EN: The narrower control rail leaves more room for the map. */
 .app-shell {
     display: grid;
-    grid-template-columns: minmax(280px, 380px) 1fr;
+    grid-template-columns: minmax(230px, 280px) 1fr;
     min-height: 100vh;
-    gap: 1rem;
-    padding: 1rem;
+    gap: 0.75rem;
+    padding: 0.75rem;
 }
 
 .sidebar {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
-/* LT: Bendras kortelių stilius meniu ir informaciniams blokams. / EN: Shared card style for menu and information blocks. */
+/* LT: Kortelės sąmoningai kompaktiškos, kad appas jaustųsi kaip darbo įrankis. / EN: Cards are deliberately compact so the app feels like a working tool. */
 .card {
     background: var(--panel);
     border: 1px solid var(--border);
-    border-radius: 28px;
-    padding: 1.25rem;
+    border-radius: 14px;
+    padding: 0.9rem;
     box-shadow: var(--shadow);
-    backdrop-filter: blur(18px);
+    backdrop-filter: blur(16px);
 }
 
 .header-card {
     display: grid;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .top-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 .header-card h1 {
     margin: 0;
-    font-size: clamp(1.7rem, 2.2vw, 2.5rem);
+    font-size: clamp(1.25rem, 1.7vw, 1.8rem);
 }
 
 .header-card p {
     margin: 0;
     color: var(--muted);
-    line-height: 1.6;
+    line-height: 1.45;
+    font-size: 0.86rem;
 }
 
-/* LT: Pagrindiniai meniu mygtukai kairėje pusėje. / EN: Main menu buttons on the left side. */
+/* LT: Pagrindiniai meniu mygtukai yra mažesni ir greitai skenuojami. / EN: Main menu buttons are smaller and quick to scan. */
 .nav-tabs {
     display: grid;
-    gap: 0.9rem;
+    gap: 0.45rem;
 }
 
 .nav-tabs button {
     width: 100%;
-    padding: 0.95rem 1rem;
-    border-radius: 18px;
+    padding: 0.65rem 0.75rem;
+    border-radius: 10px;
     background: rgba(255,255,255,0.05);
     color: var(--text);
     text-align: left;
@@ -128,11 +127,11 @@ button {
 
 .nav-tabs button:hover,
 .nav-tabs button.active {
-    transform: translateX(4px);
-    background: linear-gradient(135deg, rgba(53,179,255,0.22), rgba(45,212,165,0.12));
+    transform: translateX(3px);
+    background: linear-gradient(135deg, rgba(47,184,255,0.22), rgba(50,214,178,0.12));
 }
 
-/* LT: Modalinis meniu langas, kuris atsidaro virš žemėlapio. / EN: Modal menu window that opens above the map. */
+/* LT: Modalinis meniu langas atsidaro virš žemėlapio, neužkraudamas pagrindinio vaizdo. / EN: Modal menu opens above the map without replacing the main view. */
 .menu-window {
     position: fixed;
     inset: 0;
@@ -145,7 +144,7 @@ button {
 }
 
 .menu-dialog {
-    width: min(560px, 100%);
+    width: min(500px, 100%);
     max-height: min(760px, calc(100vh - 2rem));
     overflow: auto;
 }
@@ -160,57 +159,101 @@ button {
 
 .menu-bar h2 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
 }
 
 .icon-btn {
     display: inline-grid;
     place-items: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.1rem;
+    height: 2.1rem;
     border-radius: 50%;
     background: var(--panel);
     color: var(--text);
     border: 1px solid var(--border);
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     line-height: 1;
 }
 
 .map-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    min-height: calc(100vh - 1.5rem);
 }
 
-/* LT: Leaflet žemėlapio konteineris privalo turėti aukštį, kitaip žemėlapis nesimatys. / EN: The Leaflet map container must have height, otherwise the map will not appear. */
+.map-wrap {
+    position: relative;
+    min-height: calc(100vh - 1.5rem);
+}
+
+/* LT: Žemėlapis užima beveik visą ekraną. / EN: The map occupies almost the full screen. */
 #map {
-    min-height: 70vh;
-    height: calc(100vh - 13rem);
-    border-radius: 28px;
+    min-height: calc(100vh - 1.5rem);
+    height: calc(100vh - 1.5rem);
+    border-radius: 16px;
     overflow: hidden;
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
 }
 
-/* LT: Mažos etiketės ant žemėlapio gyliams ir matavimų šaltiniams. / EN: Small map labels for depths and survey sources. */
-.depth-label,
-.sonar-label {
-    border: 1px solid rgba(255,255,255,0.34);
-    border-radius: 999px;
-    color: #061523;
-    font-weight: 800;
-    font-size: 0.78rem;
-    padding: 0.18rem 0.45rem;
-    box-shadow: 0 8px 18px rgba(3, 17, 38, 0.25);
+/* LT: Mažas HUD pakeičia nereikalingas korteles po žemėlapiu. / EN: A small HUD replaces unnecessary cards below the map. */
+.map-hud,
+.depth-legend {
+    position: absolute;
+    z-index: 850;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+}
+
+.map-hud {
+    left: 0.75rem;
+    top: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: min(560px, calc(100% - 5rem));
+    padding: 0.45rem;
+}
+
+.hud-status {
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.25;
+    padding-right: 0.35rem;
+}
+
+.hud-button {
     white-space: nowrap;
 }
 
-.depth-label {
-    background: rgba(106, 226, 255, 0.92);
+.depth-legend {
+    left: 0.75rem;
+    bottom: 0.75rem;
+    width: 190px;
+    padding: 0.65rem;
+    display: grid;
+    gap: 0.45rem;
+    color: var(--text);
+    font-size: 0.78rem;
 }
 
-.sonar-label {
-    background: rgba(45, 212, 165, 0.92);
+.legend-ramp {
+    height: 0.65rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #d8f6ff 0%, #59c2df 28%, #287aa8 55%, #143b72 78%, #071833 100%);
+    border: 1px solid var(--border);
+}
+
+.legend-labels {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+}
+
+.relief-tile {
+    filter: contrast(1.18) saturate(0.72);
+    mix-blend-mode: multiply;
 }
 
 /* LT: Leaflet popup stiliai sinchronizuojami su tema. / EN: Leaflet popup styles are synced with the theme. */
@@ -238,7 +281,7 @@ button {
 /* LT: Sluoksnių valdiklis suskleistas užima mažai vietos ir išsiskleidžia tik naudojant. / EN: The layer control stays compact and expands only when used. */
 .leaflet-control-layers {
     border: 1px solid var(--border) !important;
-    border-radius: 14px;
+    border-radius: 12px;
     background: var(--panel) !important;
     box-shadow: var(--shadow);
     color: var(--text);
@@ -247,9 +290,9 @@ button {
 }
 
 .leaflet-control-layers-collapsed {
-    width: 2.55rem;
-    height: 2.55rem;
-    opacity: 0.76;
+    width: 2.35rem;
+    height: 2.35rem;
+    opacity: 0.72;
 }
 
 .leaflet-control-layers-collapsed:hover,
@@ -259,67 +302,59 @@ button {
 }
 
 .leaflet-control-layers-expanded {
-    max-width: min(260px, calc(100vw - 2rem));
-    padding: 0.75rem;
+    max-width: min(250px, calc(100vw - 2rem));
+    padding: 0.65rem;
     opacity: 0.96;
 }
 
 .leaflet-control-layers-toggle {
-    width: 2.55rem !important;
-    height: 2.55rem !important;
-    background-size: 1.35rem 1.35rem !important;
+    width: 2.35rem !important;
+    height: 2.35rem !important;
+    background-size: 1.2rem 1.2rem !important;
 }
 
 .leaflet-control-layers-list {
     display: grid;
-    gap: 0.35rem;
+    gap: 0.32rem;
 }
 
 .leaflet-control-layers label {
     color: var(--text);
-    font-size: 0.88rem;
-    line-height: 1.3;
+    font-size: 0.84rem;
+    line-height: 1.25;
 }
 
 .leaflet-control-layers-separator {
     border-top-color: var(--border);
 }
 
-
-/* LT: Informacinės kortelės po žemėlapiu. / EN: Information cards below the map. */
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-}
-
 .info-card {
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
+    gap: 0.55rem;
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 24px;
-    padding: 1rem;
+    border-radius: 12px;
+    padding: 0.75rem;
 }
 
 .info-card h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.95rem;
     color: var(--accent-2);
 }
 
 .info-card p {
     margin: 0;
     color: var(--text);
-    line-height: 1.5;
+    line-height: 1.45;
 }
 
 /* LT: Nustatymų formos laukai modaliniame lange. / EN: Settings form fields inside the modal window. */
 .fieldset {
     display: grid;
-    gap: 0.75rem;
-    margin-top: 1rem;
+    gap: 0.55rem;
+    margin-top: 0.75rem;
 }
 
 .fieldset label {
@@ -328,14 +363,14 @@ button {
     gap: 0.75rem;
     align-items: center;
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 0.86rem;
 }
 
 .fieldset input,
 .fieldset select {
     width: 100%;
-    padding: 0.85rem 1rem;
-    border-radius: 18px;
+    padding: 0.62rem 0.75rem;
+    border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.12);
     background: rgba(255,255,255,0.04);
     color: var(--text);
@@ -343,21 +378,32 @@ button {
 
 .actions {
     display: grid;
-    gap: 0.9rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.btn-strong,
+.btn-light {
+    padding: 0.62rem 0.8rem;
+    border-radius: 10px;
+    font-size: 0.88rem;
 }
 
 .btn-strong {
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     color: #041823;
-    box-shadow: 0 18px 30px rgba(53,179,255,0.25);
-    padding: 0.95rem 1.2rem;
-    border-radius: 18px;
+    box-shadow: 0 12px 24px rgba(47,184,255,0.22);
     transition: transform .2s ease, opacity .2s ease;
 }
 
 .btn-strong:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     opacity: 0.95;
+}
+
+.btn-light {
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
 }
 
 .btn-strong.is-active,
@@ -366,15 +412,35 @@ button {
     outline-offset: 2px;
 }
 
-.btn-light {
-    background: rgba(255,255,255,0.08);
-    color: var(--text);
-    padding: 0.95rem 1.2rem;
-    border-radius: 18px;
-}
-
 .btn-light.is-active {
     background: rgba(45, 212, 165, 0.18);
+}
+
+.waypoint-list {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.waypoint-list li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.waypoint-empty {
+    grid-template-columns: 1fr !important;
+}
+
+.mini-action {
+    padding: 0.35rem 0.5rem;
+    border-radius: 8px;
+    background: rgba(255, 107, 114, 0.16);
     color: var(--text);
 }
 
@@ -390,15 +456,8 @@ button {
 }
 
 .small-note {
-    font-size: 0.9rem;
+    font-size: 0.86rem;
     color: var(--muted);
-}
-
-footer {
-    text-align: center;
-    color: var(--muted);
-    margin-top: 0.5rem;
-    font-size: 0.92rem;
 }
 
 /* LT: Bendra klasė paslėpti panelius ir modalinį langą. / EN: Shared class for hiding panels and the modal window. */
@@ -410,12 +469,39 @@ footer {
     .app-shell {
         grid-template-columns: 1fr;
     }
+
+    .map-panel,
+    .map-wrap,
     #map {
-        min-height: 60vh;
+        min-height: 72vh;
+        height: 72vh;
     }
 }
 
 @media (max-width: 640px) {
+    .app-shell {
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+
+    .actions {
+        grid-template-columns: 1fr;
+    }
+
+    .map-hud {
+        left: 0.5rem;
+        top: 0.5rem;
+        max-width: calc(100% - 3.5rem);
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .depth-legend {
+        left: 0.5rem;
+        bottom: 0.5rem;
+        width: 155px;
+    }
+
     .leaflet-top.leaflet-right {
         top: 0.45rem;
         right: 0.45rem;
@@ -443,9 +529,6 @@ footer {
         line-height: 1.2;
     }
 
-    .info-grid {
-        grid-template-columns: 1fr;
-    }
     .header-card {
         padding-bottom: 0;
     }

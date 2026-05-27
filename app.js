@@ -18,10 +18,12 @@ const routeState = {
   line: null,
 };
 
+const CACHE_NAME = "marine-navigator-map-cache-v1";
 let waypointMode = false;
 let layerControl = null;
 let gpsWatchId = null;
 let layerErrorShown = false;
+let orientationMode = "north";
 
 // LT: Kalba ir tema išsaugomos naršyklėje, kad perkrovus puslapį pasirinkimai liktų. / EN: Language and theme are saved in the browser so choices remain after reload.
 let lang = "lt";
@@ -29,9 +31,12 @@ let theme = "dark";
 if (typeof window !== "undefined" && window.localStorage) {
   lang = window.localStorage.getItem("marine-navigator-lang") || "lt";
   theme = window.localStorage.getItem("marine-navigator-theme") || "dark";
+  orientationMode =
+    window.localStorage.getItem("marine-navigator-orientation") || "north";
 }
 
 theme = theme === "light" ? "light" : "dark";
+orientationMode = orientationMode === "route" ? "route" : "north";
 if (typeof document !== "undefined") {
   document.documentElement.dataset.theme = theme;
   document.documentElement.lang = lang;
@@ -59,7 +64,9 @@ const TEXT = {
     closeMenu: "Uždaryti",
     gpsTitle: "Realaus laiko GPS",
     gpsStart: "Paleisti GPS",
+    gpsStop: "Stabdyti GPS",
     gpsAlreadyActive: "GPS jau paleistas.",
+    gpsStopped: "GPS sustabdytas.",
     gpsButtonActive: "GPS veikia",
     addWaypoint: "Pridėti maršruto tašką",
     waypointModeActive: "Pasirinkite tašką žemėlapyje",
@@ -74,8 +81,16 @@ const TEXT = {
     routeDistanceTitle: "Maršruto atstumas",
     routeEmpty: "Maršrutas tuščias",
     routeDistance: (km) => `Maršrutas: ${km.toFixed(2)} km`,
+    waypointListEmpty: "Maršruto taškų dar nėra.",
+    waypointLabel: (index) => `Taškas ${index}`,
+    deleteWaypoint: "Trinti",
     waypointModeHint:
       "Spustelėkite žemėlapį, kad pridėtumėte maršruto tašką.",
+    orientationNorth: "Šiaurė ↑",
+    orientationRoute: "Maršrutas ↑",
+    orientationUnavailable:
+      "Žemėlapio pasukimas nepasiekiamas, nes rotacijos priedas neįsikėlė.",
+    legendTitle: "Gyliai",
     chartsTitle: "Žemėlapio sluoksniai",
     chartsDescription:
       "Matomi realūs EMODnet gyliai, gylio kontūrai, matavimų šaltiniai ir GEBCO dugno reljefas.",
@@ -94,12 +109,12 @@ const TEXT = {
       `Numatoma rida: ${range} ${unit} su 1000 l kuro.`,
     offlineTitle: "Išsaugotas žemėlapio vaizdas",
     offlineDescription:
-      "Išsaugokite dabartinį žemėlapio centrą, priartinimą ir matomą sritį.",
+      "Išsaugokite dabartinį žemėlapio centrą, priartinimą ir matomas plyteles.",
     downloadOffline: "Išsaugoti vaizdą",
     loadOffline: "Atkurti vaizdą",
     offlineStatusTitle: "Statusas",
     offlineWaiting: "Laukia",
-    offlineSaved: "Žemėlapio vaizdas išsaugotas.",
+    offlineSaved: (count) => `Žemėlapio vaizdas išsaugotas. Plytelės: ${count}.`,
     offlineLoaded: "Žemėlapio vaizdas atkurtas.",
     offlineNoData: "Nėra išsaugoto žemėlapio vaizdo.",
     marineChartTitle: "Jūrinis žemėlapis",
@@ -108,8 +123,7 @@ const TEXT = {
     terrainTitle: "3D dugno reljefas",
     terrainDescription:
       "GEBCO shaded relief sluoksnis paryškina tikrą dugno reljefą.",
-    footer:
-      "Palieskite žemėlapį realiam gyliui. Maršruto taškams naudokite mygtuką.",
+    footer: "Palieskite žemėlapį realiam gyliui.",
     depthPopup: (depth) => `Realus EMODnet gylis: ${depth} m`,
     depthPopupError: "Nepavyko gauti gylio šiame taške.",
     depthPopupLoading: "Gaunamas realus gylis...",
@@ -137,7 +151,9 @@ const TEXT = {
     closeMenu: "Close",
     gpsTitle: "Real-time GPS",
     gpsStart: "Start GPS",
+    gpsStop: "Stop GPS",
     gpsAlreadyActive: "GPS is already active.",
+    gpsStopped: "GPS stopped.",
     gpsButtonActive: "GPS active",
     addWaypoint: "Add waypoint",
     waypointModeActive: "Choose point on map",
@@ -152,7 +168,15 @@ const TEXT = {
     routeDistanceTitle: "Route distance",
     routeEmpty: "Route empty",
     routeDistance: (km) => `Route distance: ${km.toFixed(2)} km`,
+    waypointListEmpty: "No route waypoints yet.",
+    waypointLabel: (index) => `Waypoint ${index}`,
+    deleteWaypoint: "Delete",
     waypointModeHint: "Click the map to add waypoint.",
+    orientationNorth: "North ↑",
+    orientationRoute: "Route ↑",
+    orientationUnavailable:
+      "Map rotation is unavailable because the rotation plugin did not load.",
+    legendTitle: "Depths",
     chartsTitle: "Map layers",
     chartsDescription:
       "Real EMODnet depths, depth contours, survey sources, and GEBCO seabed relief are visible on the map.",
@@ -171,12 +195,12 @@ const TEXT = {
       `Estimated range: ${range} ${unit} with 1000 l of fuel.`,
     offlineTitle: "Saved map view",
     offlineDescription:
-      "Save the current map center, zoom level, and visible bounds.",
+      "Save the current map center, zoom level, and visible tiles.",
     downloadOffline: "Save view",
     loadOffline: "Restore view",
     offlineStatusTitle: "Status",
     offlineWaiting: "Waiting",
-    offlineSaved: "Map view saved.",
+    offlineSaved: (count) => `Map view saved. Tiles: ${count}.`,
     offlineLoaded: "Map view restored.",
     offlineNoData: "No saved map view found.",
     marineChartTitle: "Marine chart",
@@ -185,7 +209,7 @@ const TEXT = {
     terrainTitle: "3D seabed relief",
     terrainDescription:
       "The GEBCO shaded relief layer highlights real seabed terrain.",
-    footer: "Tap the map for real depth. Use the waypoint button for routes.",
+    footer: "Tap the map for real depth.",
     depthPopup: (depth) => `Real EMODnet depth: ${depth} m`,
     depthPopupError: "Could not retrieve depth for this point.",
     depthPopupLoading: "Loading real depth...",
@@ -237,6 +261,7 @@ function renderAllTexts() {
   setText("app-description", t.appDescription);
   setText("lang-toggle", t.languageButton);
   setText("gps-title", t.gpsTitle);
+  setText("gps-stop", t.gpsStop);
   setText("clear-route", t.clearRoute);
   setText("route-distance-title", t.routeDistanceTitle);
   setText("charts-title", t.chartsTitle);
@@ -259,6 +284,7 @@ function renderAllTexts() {
   setText("terrain-title", t.terrainTitle);
   setText("terrain-description", t.terrainDescription);
   setText("map-footer", layerErrorShown ? t.layerLoadError : t.footer);
+  setText("legend-title", t.legendTitle);
   setText("close-menu", "×");
   document.getElementById("close-menu")?.setAttribute("aria-label", t.closeMenu);
 
@@ -270,6 +296,8 @@ function renderAllTexts() {
   renderTheme();
   renderGpsButtonState();
   renderWaypointButtonState();
+  renderOrientationButton();
+  renderWaypointList();
   renderBoatPreview();
 
   const gpsStatus = document.getElementById("gps-status");
@@ -296,6 +324,9 @@ const map = L.map("map", {
   center: [55.7, 21.1],
   zoom: 7,
   zoomControl: false,
+  rotate: true,
+  bearing: 0,
+  touchRotate: true,
 });
 
 // LT: Atskiri pane sluoksniai užtikrina, kad reljefas, gyliai ir matavimų šaltiniai būtų matomi virš bazinio žemėlapio. / EN: Separate panes ensure relief, depths, and survey sources stay visible above the base map.
@@ -353,12 +384,14 @@ const sonarLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
   attribution: "EMODnet Bathymetry",
 });
 const reliefLayer = L.tileLayer.wms("https://wms.gebco.net/mapserv", {
-  layers: "GEBCO_Latest",
+  layers: "GEBCO_LATEST",
   format: "image/png",
   transparent: true,
+  version: "1.3.0",
   pane: "reliefPane",
-  opacity: 0.58,
+  opacity: 0.46,
   attribution: "GEBCO",
+  className: "relief-tile",
 });
 const trackLayer = L.layerGroup().addTo(map);
 
@@ -406,6 +439,70 @@ function renderLayerControl() {
 }
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
+
+// LT: Apskaičiuoja kryptį laipsniais nuo pirmo taško iki antro. / EN: Calculates bearing in degrees from the first point to the second.
+function bearingBetweenPoints(from, to) {
+  const lat1 = (from.lat * Math.PI) / 180;
+  const lat2 = (to.lat * Math.PI) / 180;
+  const lngDiff = ((to.lng - from.lng) * Math.PI) / 180;
+  const y = Math.sin(lngDiff) * Math.cos(lat2);
+  const x =
+    Math.cos(lat1) * Math.sin(lat2) -
+    Math.sin(lat1) * Math.cos(lat2) * Math.cos(lngDiff);
+
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+// LT: Parenka kryptį pagal paskutinį maršruto segmentą arba GPS judėjimą. / EN: Picks heading from the latest route segment or GPS movement.
+function getActiveHeading() {
+  const routePositions = routeState.markers.map((marker) => marker.getLatLng());
+  if (routePositions.length >= 2) {
+    return bearingBetweenPoints(
+      routePositions[routePositions.length - 2],
+      routePositions[routePositions.length - 1],
+    );
+  }
+
+  if (currentPosition.positions.length >= 2) {
+    const [lat1, lng1] =
+      currentPosition.positions[currentPosition.positions.length - 2];
+    const [lat2, lng2] =
+      currentPosition.positions[currentPosition.positions.length - 1];
+    return bearingBetweenPoints(
+      { lat: lat1, lng: lng1 },
+      { lat: lat2, lng: lng2 },
+    );
+  }
+
+  return 0;
+}
+
+// LT: Atnaujina žemėlapio orientaciją: šiaurė viršuje arba maršruto kryptis viršuje. / EN: Updates map orientation: north-up or route-heading-up.
+function applyMapOrientation() {
+  const t = TEXT[lang] || TEXT.lt;
+  const targetBearing = orientationMode === "route" ? getActiveHeading() : 0;
+
+  if (typeof map.setBearing === "function") {
+    map.setBearing(targetBearing);
+  } else if (orientationMode === "route") {
+    setText("map-footer", t.orientationUnavailable);
+  }
+
+  renderOrientationButton();
+}
+
+// LT: Rodo dabartinį orientacijos režimą mažame žemėlapio mygtuke. / EN: Shows the current orientation mode in the small map button.
+function renderOrientationButton() {
+  const button = document.getElementById("orientation-toggle");
+  if (!button) return;
+
+  button.textContent =
+    orientationMode === "route"
+      ? TEXT[lang].orientationRoute
+      : TEXT[lang].orientationNorth;
+  button.classList.toggle("is-active", orientationMode === "route");
+  button.setAttribute("aria-pressed", String(orientationMode === "route"));
+}
 
 // LT: Užklausia tikrą EMODnet gylį pasirinktame taške. / EN: Requests a real EMODnet depth sample at the selected point.
 async function fetchDepthSample(latlng) {
@@ -479,6 +576,7 @@ function updatePositionMarker(lat, lng, accuracy) {
   map.panTo([lat, lng], { animate: true, duration: 1.1 });
   document.getElementById("gps-status").textContent =
     TEXT[lang].gpsStatusActive(lat, lng);
+  applyMapOrientation();
 }
 
 // LT: Parodo instrukciją, kai vartotojas įjungia maršruto taško pridėjimo režimą. / EN: Shows instructions when waypoint placement mode is enabled.
@@ -530,6 +628,16 @@ function geolocate() {
       timeout: 10000,
     },
   );
+  renderGpsButtonState();
+}
+
+// LT: Sustabdo GPS sekimą, bet palieka paskutinį žymeklį žemėlapyje. / EN: Stops GPS tracking while keeping the last marker on the map.
+function stopGps() {
+  if (gpsWatchId === null) return;
+
+  navigator.geolocation.clearWatch?.(gpsWatchId);
+  gpsWatchId = null;
+  document.getElementById("gps-status").textContent = TEXT[lang].gpsStopped;
   renderGpsButtonState();
 }
 
@@ -586,17 +694,64 @@ function addRoutePoint(event) {
   refreshRoute();
 }
 
+// LT: Ištrina vieną maršruto tašką pagal jo numerį sąraše. / EN: Deletes one route waypoint by its list index.
+function deleteRoutePoint(index) {
+  const marker = routeState.markers[index];
+  if (!marker) return;
+
+  map.removeLayer(marker);
+  routeState.markers.splice(index, 1);
+  refreshRoute();
+}
+
+// LT: Perpiešia maršruto taškų sąrašą modaliniame navigacijos lange. / EN: Renders the route waypoint list in the navigation modal.
+function renderWaypointList() {
+  const list = document.getElementById("waypoint-list");
+  if (!list) return;
+
+  list.innerHTML = "";
+
+  if (routeState.markers.length === 0) {
+    const item = document.createElement("li");
+    item.className = "waypoint-empty";
+    item.textContent = TEXT[lang].waypointListEmpty;
+    list.appendChild(item);
+    return;
+  }
+
+  routeState.markers.forEach((marker, index) => {
+    const position = marker.getLatLng();
+    const item = document.createElement("li");
+    const label = document.createElement("span");
+    const deleteButton = document.createElement("button");
+
+    const coordinates = `${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`;
+    label.textContent = `${TEXT[lang].waypointLabel(index + 1)}: ${coordinates}`;
+    deleteButton.type = "button";
+    deleteButton.className = "mini-action";
+    deleteButton.textContent = TEXT[lang].deleteWaypoint;
+    deleteButton.addEventListener("click", () => deleteRoutePoint(index));
+
+    item.append(label, deleteButton);
+    list.appendChild(item);
+  });
+}
+
 // LT: Perbraižo maršruto liniją ir perskaičiuoja bendrą maršruto ilgį. / EN: Redraws the route line and recalculates total route distance.
 function refreshRoute() {
   const positions = routeState.markers.map((marker) => marker.getLatLng());
   if (routeState.line) {
     map.removeLayer(routeState.line);
+    routeState.line = null;
   }
-  routeState.line = L.polyline(positions, {
-    color: "#ffab00",
-    weight: 5,
-    opacity: 0.8,
-  }).addTo(map);
+
+  if (positions.length >= 2) {
+    routeState.line = L.polyline(positions, {
+      color: "#ffab00",
+      weight: 5,
+      opacity: 0.86,
+    }).addTo(map);
+  }
 
   if (positions.length >= 2) {
     let total = 0;
@@ -613,6 +768,9 @@ function refreshRoute() {
   } else {
     document.getElementById("route-distance").textContent = TEXT[lang].routeEmpty;
   }
+
+  renderWaypointList();
+  applyMapOrientation();
 }
 
 // LT: Pašalina visus maršruto taškus ir liniją iš žemėlapio. / EN: Removes all route waypoints and the route line from the map.
@@ -624,10 +782,40 @@ function clearRoute() {
     routeState.line = null;
   }
   document.getElementById("route-distance").textContent = TEXT[lang].routeEmpty;
+  renderWaypointList();
+  applyMapOrientation();
 }
 
-// LT: Išsaugo dabartinį žemėlapio centrą, mastelį ir ribas localStorage saugykloje. / EN: Saves the current map center, zoom, and bounds in localStorage.
-function downloadOfflineArea() {
+// LT: Į Cache API įrašo šiuo metu matomas Leaflet plyteles. / EN: Stores currently visible Leaflet tiles in the Cache API.
+async function cacheVisibleTiles() {
+  if (!("caches" in window)) return 0;
+
+  const cache = await caches.open(CACHE_NAME);
+  const urls = [
+    ...new Set(
+      Array.from(document.querySelectorAll("#map img.leaflet-tile"))
+        .map((tile) => tile.currentSrc || tile.src)
+        .filter(Boolean),
+    ),
+  ];
+
+  const results = await Promise.allSettled(
+    urls.map(async (url) => {
+      const response = await fetch(url, { mode: "no-cors" });
+      if (response.ok || response.type === "opaque") {
+        await cache.put(url, response.clone());
+        return true;
+      }
+      return false;
+    }),
+  );
+
+  return results.filter((result) => result.status === "fulfilled" && result.value)
+    .length;
+}
+
+// LT: Išsaugo dabartinį žemėlapio centrą, mastelį, ribas ir matomas plyteles. / EN: Saves the current map center, zoom, bounds, and visible tiles.
+async function downloadOfflineArea() {
   const bounds = map.getBounds();
   const offlineData = {
     center: map.getCenter(),
@@ -637,7 +825,9 @@ function downloadOfflineArea() {
     notes: "Saved map view / Išsaugotas žemėlapio vaizdas",
   };
   localStorage.setItem("marine-navigator-offline", JSON.stringify(offlineData));
-  document.getElementById("offline-status").textContent = TEXT[lang].offlineSaved;
+  const cachedTileCount = await cacheVisibleTiles();
+  document.getElementById("offline-status").textContent =
+    TEXT[lang].offlineSaved(cachedTileCount);
 }
 
 // LT: Atkuria anksčiau išsaugotą žemėlapio vaizdą, jei toks yra. / EN: Restores the previously saved map view when one exists.
@@ -739,11 +929,23 @@ function setupUI() {
   const gpsStartBtn = document.getElementById("gps-start");
   if (gpsStartBtn) gpsStartBtn.addEventListener("click", geolocate);
 
+  const gpsStopBtn = document.getElementById("gps-stop");
+  if (gpsStopBtn) gpsStopBtn.addEventListener("click", stopGps);
+
   const waypointBtn = document.getElementById("waypoint-mode-btn");
   if (waypointBtn) {
     waypointBtn.addEventListener("click", () => {
       waypointMode = !waypointMode;
       updateWaypointModeUI(waypointMode);
+    });
+  }
+
+  const orientationToggle = document.getElementById("orientation-toggle");
+  if (orientationToggle) {
+    orientationToggle.addEventListener("click", () => {
+      orientationMode = orientationMode === "north" ? "route" : "north";
+      localStorage.setItem("marine-navigator-orientation", orientationMode);
+      applyMapOrientation();
     });
   }
 
@@ -767,6 +969,7 @@ function setupUI() {
       document.documentElement.lang = lang;
       renderAllTexts();
       renderLayerControl();
+      applyMapOrientation();
       if (routeState.markers.length) {
         refreshRoute();
       }
@@ -790,6 +993,11 @@ function init() {
   renderLayerControl();
   setupUI();
   document.getElementById("gps-status").textContent = TEXT[lang].gpsStatusWaiting;
+  applyMapOrientation();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js").catch(() => {});
+  }
 }
 
 window.addEventListener("load", init);
