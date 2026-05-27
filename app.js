@@ -1,7 +1,7 @@
 /*
     App logic / Programos logika
-    LT: čia vykdomi navigacijos žemėlapio sluoksniai, GPS vietos nustatymas, maršrutų planavimas ir offline funkcijos.
-    EN: map layers, location updates, route planning, and offline download simulation are handled here.
+    LT: čia vykdomi navigacijos žemėlapio sluoksniai, GPS vietos nustatymas, maršrutų planavimas ir išsaugoto vaizdo funkcijos.
+    EN: map layers, location updates, route planning, and saved map view tools are handled here.
 */
 
 // LT: Saugo vartotojo GPS žymeklį, tikslumo apskritimą ir judėjimo istoriją. / EN: Stores the user's GPS marker, accuracy circle, and movement history.
@@ -21,6 +21,7 @@ const routeState = {
 let waypointMode = false;
 let layerControl = null;
 let gpsWatchId = null;
+let layerErrorShown = false;
 
 // LT: Kalba ir tema išsaugomos naršyklėje, kad perkrovus puslapį pasirinkimai liktų. / EN: Language and theme are saved in the browser so choices remain after reload.
 let lang = "lt";
@@ -40,14 +41,14 @@ if (typeof document !== "undefined") {
 const TEXT = {
   lt: {
     appDescription:
-      "Interaktyvi navigacijos programa jūrai su GPS, gylių, sonaro ir maršrutų planavimo funkcijomis.",
+      "Interaktyvi jūrinės navigacijos programa su GPS, realiais batimetrijos sluoksniais ir maršrutų planavimu.",
     languageButton: "EN",
     themeLight: "Diena",
     themeDark: "Naktis",
     navNavigation: "Navigacija",
     navCharts: "Žemėlapiai",
     navSettings: "Nustatymai",
-    navOffline: "Offline",
+    navOffline: "Išsaugotas vaizdas",
     baseDefault: "Pagrindinis",
     baseSatellite: "Satelitas",
     baseTerrain: "Reljefas",
@@ -59,13 +60,17 @@ const TEXT = {
     gpsTitle: "Realaus laiko GPS",
     gpsStart: "Paleisti GPS",
     gpsAlreadyActive: "GPS jau paleistas.",
+    gpsButtonActive: "GPS veikia",
     addWaypoint: "Pridėti maršruto tašką",
+    waypointModeActive: "Pasirinkite tašką žemėlapyje",
     clearRoute: "Išvalyti maršrutą",
     gpsUnavailable: "GPS nepasiekiamas",
     gpsStatusWaiting: "Laukiama GPS duomenų...",
     gpsStatusActive: (lat, lng) =>
       `GPS veikia: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
     gpsStatusError: (msg) => `GPS klaida: ${msg}`,
+    layerLoadError:
+      "Nepavyko užkrauti vieno iš batimetrijos sluoksnių. Patikrinkite interneto ryšį.",
     routeDistanceTitle: "Maršruto atstumas",
     routeEmpty: "Maršrutas tuščias",
     routeDistance: (km) => `Maršrutas: ${km.toFixed(2)} km`,
@@ -87,16 +92,16 @@ const TEXT = {
       `Laivo ilgis: ${length} m, greitis: ${speed} kn, sąnaudos: ${consumption} l/val.`,
     boatRange: (range, unit) =>
       `Numatoma rida: ${range} ${unit} su 1000 l kuro.`,
-    offlineTitle: "Offline funkcijos",
+    offlineTitle: "Išsaugotas žemėlapio vaizdas",
     offlineDescription:
-      "Išsaugokite pasirinktą sritį naudodami vietinę saugyklą.",
-    downloadOffline: "Parsisiųsti zoną",
-    loadOffline: "Įkelti offline",
+      "Išsaugokite dabartinį žemėlapio centrą, priartinimą ir matomą sritį.",
+    downloadOffline: "Išsaugoti vaizdą",
+    loadOffline: "Atkurti vaizdą",
     offlineStatusTitle: "Statusas",
     offlineWaiting: "Laukia",
-    offlineSaved: "Offline zona išsaugota.",
-    offlineLoaded: "Offline zona įkelta.",
-    offlineNoData: "Nėra išsaugotų offline duomenų.",
+    offlineSaved: "Žemėlapio vaizdas išsaugotas.",
+    offlineLoaded: "Žemėlapio vaizdas atkurtas.",
+    offlineNoData: "Nėra išsaugoto žemėlapio vaizdo.",
     marineChartTitle: "Jūrinis žemėlapis",
     marineChartDescription:
       "Pagrindinis žemėlapis rodo realius batimetrijos sluoksnius, maršrutus ir realią vietą.",
@@ -104,7 +109,7 @@ const TEXT = {
     terrainDescription:
       "GEBCO shaded relief sluoksnis paryškina tikrą dugno reljefą.",
     footer:
-      "Palieskite žemėlapį, kad pridėtumėte maršruto tašką.",
+      "Palieskite žemėlapį realiam gyliui. Maršruto taškams naudokite mygtuką.",
     depthPopup: (depth) => `Realus EMODnet gylis: ${depth} m`,
     depthPopupError: "Nepavyko gauti gylio šiame taške.",
     depthPopupLoading: "Gaunamas realus gylis...",
@@ -114,14 +119,14 @@ const TEXT = {
   },
   en: {
     appDescription:
-      "Interactive marine navigation app with GPS, depth, sonar, and route planning tools.",
+      "Interactive marine navigation app with GPS, real bathymetry layers, and route planning tools.",
     languageButton: "LT",
     themeLight: "Day",
     themeDark: "Night",
     navNavigation: "Navigation",
     navCharts: "Charts",
     navSettings: "Settings",
-    navOffline: "Offline",
+    navOffline: "Saved view",
     baseDefault: "Default",
     baseSatellite: "Satellite",
     baseTerrain: "Terrain",
@@ -133,13 +138,17 @@ const TEXT = {
     gpsTitle: "Real-time GPS",
     gpsStart: "Start GPS",
     gpsAlreadyActive: "GPS is already active.",
+    gpsButtonActive: "GPS active",
     addWaypoint: "Add waypoint",
+    waypointModeActive: "Choose point on map",
     clearRoute: "Clear route",
     gpsUnavailable: "GPS unavailable",
     gpsStatusWaiting: "Waiting for GPS...",
     gpsStatusActive: (lat, lng) =>
       `GPS active: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
     gpsStatusError: (msg) => `GPS error: ${msg}`,
+    layerLoadError:
+      "Could not load one of the bathymetry layers. Check your internet connection.",
     routeDistanceTitle: "Route distance",
     routeEmpty: "Route empty",
     routeDistance: (km) => `Route distance: ${km.toFixed(2)} km`,
@@ -160,22 +169,23 @@ const TEXT = {
       `Boat length: ${length} m, speed: ${speed} kn, fuel use: ${consumption} l/h.`,
     boatRange: (range, unit) =>
       `Estimated range: ${range} ${unit} with 1000 l of fuel.`,
-    offlineTitle: "Offline functions",
-    offlineDescription: "Save selected area for offline use.",
-    downloadOffline: "Download area",
-    loadOffline: "Load offline",
+    offlineTitle: "Saved map view",
+    offlineDescription:
+      "Save the current map center, zoom level, and visible bounds.",
+    downloadOffline: "Save view",
+    loadOffline: "Restore view",
     offlineStatusTitle: "Status",
     offlineWaiting: "Waiting",
-    offlineSaved: "Offline area saved.",
-    offlineLoaded: "Offline area loaded.",
-    offlineNoData: "No offline data found.",
+    offlineSaved: "Map view saved.",
+    offlineLoaded: "Map view restored.",
+    offlineNoData: "No saved map view found.",
     marineChartTitle: "Marine chart",
     marineChartDescription:
       "The main chart shows real bathymetry layers, routes, and live position.",
     terrainTitle: "3D seabed relief",
     terrainDescription:
       "The GEBCO shaded relief layer highlights real seabed terrain.",
-    footer: "Tap the map to add route waypoints.",
+    footer: "Tap the map for real depth. Use the waypoint button for routes.",
     depthPopup: (depth) => `Real EMODnet depth: ${depth} m`,
     depthPopupError: "Could not retrieve depth for this point.",
     depthPopupLoading: "Loading real depth...",
@@ -188,6 +198,29 @@ const TEXT = {
 function setText(id, value) {
   const element = document.getElementById(id);
   if (element) element.textContent = value;
+}
+
+// LT: Pakeičia GPS mygtuko būseną, kad vartotojas matytų, jog sekimas jau įjungtas. / EN: Updates the GPS button state so the user can see tracking is already active.
+function renderGpsButtonState() {
+  const button = document.getElementById("gps-start");
+  if (!button) return;
+
+  const isActive = gpsWatchId !== null;
+  button.textContent = isActive ? TEXT[lang].gpsButtonActive : TEXT[lang].gpsStart;
+  button.classList.toggle("is-active", isActive);
+  button.setAttribute("aria-pressed", String(isActive));
+}
+
+// LT: Parodo, ar kitas žemėlapio paspaudimas pridės maršruto tašką. / EN: Shows whether the next map click will add a route waypoint.
+function renderWaypointButtonState() {
+  const button = document.getElementById("waypoint-mode-btn");
+  if (!button) return;
+
+  button.textContent = waypointMode
+    ? TEXT[lang].waypointModeActive
+    : TEXT[lang].addWaypoint;
+  button.classList.toggle("is-active", waypointMode);
+  button.setAttribute("aria-pressed", String(waypointMode));
 }
 
 // LT: Atnaujina temos atributą ant <html> ir pakeičia temos mygtuko tekstą. / EN: Updates the theme attribute on <html> and changes the theme button text.
@@ -204,8 +237,6 @@ function renderAllTexts() {
   setText("app-description", t.appDescription);
   setText("lang-toggle", t.languageButton);
   setText("gps-title", t.gpsTitle);
-  setText("gps-start", t.gpsStart);
-  setText("waypoint-mode-btn", t.addWaypoint);
   setText("clear-route", t.clearRoute);
   setText("route-distance-title", t.routeDistanceTitle);
   setText("charts-title", t.chartsTitle);
@@ -227,7 +258,7 @@ function renderAllTexts() {
   setText("marine-chart-description", t.marineChartDescription);
   setText("terrain-title", t.terrainTitle);
   setText("terrain-description", t.terrainDescription);
-  setText("map-footer", t.footer);
+  setText("map-footer", layerErrorShown ? t.layerLoadError : t.footer);
   setText("close-menu", "×");
   document.getElementById("close-menu")?.setAttribute("aria-label", t.closeMenu);
 
@@ -237,6 +268,8 @@ function renderAllTexts() {
   if (navButtons[3]) navButtons[3].textContent = t.navOffline;
 
   renderTheme();
+  renderGpsButtonState();
+  renderWaypointButtonState();
   renderBoatPreview();
 
   const gpsStatus = document.getElementById("gps-status");
@@ -265,7 +298,7 @@ const map = L.map("map", {
   zoomControl: false,
 });
 
-// LT: Atskiri pane sluoksniai užtikrina, kad reljefas, gyliai ir sonaras būtų matomi virš bazinio žemėlapio. / EN: Separate panes ensure relief, depths, and sonar stay visible above the base map.
+// LT: Atskiri pane sluoksniai užtikrina, kad reljefas, gyliai ir matavimų šaltiniai būtų matomi virš bazinio žemėlapio. / EN: Separate panes ensure relief, depths, and survey sources stay visible above the base map.
 map.createPane("reliefPane");
 map.createPane("depthPane");
 map.createPane("contourPane");
@@ -296,7 +329,7 @@ const baseLayers = {
 
 // LT: Realūs batimetrijos sluoksniai iš EMODnet ir GEBCO WMS servisų. / EN: Real bathymetry layers from EMODnet and GEBCO WMS services.
 const depthLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
-  layers: "mean_multicolour",
+  layers: "emodnet:mean_multicolour",
   format: "image/png",
   transparent: true,
   pane: "depthPane",
@@ -304,7 +337,7 @@ const depthLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
   attribution: "EMODnet Bathymetry",
 });
 const contourLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
-  layers: "contours",
+  layers: "emodnet:contours",
   format: "image/png",
   transparent: true,
   pane: "contourPane",
@@ -312,7 +345,7 @@ const contourLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
   attribution: "EMODnet Bathymetry",
 });
 const sonarLayer = L.tileLayer.wms("https://ows.emodnet-bathymetry.eu/wms", {
-  layers: "source_references",
+  layers: "emodnet:source_references",
   format: "image/png",
   transparent: true,
   pane: "sonarPane",
@@ -330,6 +363,17 @@ const reliefLayer = L.tileLayer.wms("https://wms.gebco.net/mapserv", {
 const trackLayer = L.layerGroup().addTo(map);
 
 baseLayers.Default.addTo(map);
+
+// LT: WMS klaidos dažniausiai reiškia ryšio arba išorinio serviso problemą, todėl vartotojui rodome vieną aiškią žinutę. / EN: WMS errors usually mean a network or external service issue, so the user gets one clear message.
+function reportLayerLoadError() {
+  if (layerErrorShown) return;
+  layerErrorShown = true;
+  setText("map-footer", TEXT[lang].layerLoadError);
+}
+
+[depthLayer, contourLayer, sonarLayer, reliefLayer].forEach((layer) => {
+  layer.on("tileerror", reportLayerLoadError);
+});
 reliefLayer.addTo(map);
 depthLayer.addTo(map);
 contourLayer.addTo(map);
@@ -445,15 +489,22 @@ function updateWaypointModeUI(isOn) {
 
   if (isOn) {
     gpsStatus.textContent = t.waypointModeHint;
+  } else if (currentPosition.positions.length) {
+    const [lat, lng] =
+      currentPosition.positions[currentPosition.positions.length - 1];
+    gpsStatus.textContent = t.gpsStatusActive(lat, lng);
   } else {
     gpsStatus.textContent = t.gpsStatusWaiting;
   }
+
+  renderWaypointButtonState();
 }
 
 // LT: Paleidžia naršyklės geolokaciją ir perduoda gautas koordinates žemėlapiui. / EN: Starts browser geolocation and passes received coordinates to the map.
 function geolocate() {
   if (gpsWatchId !== null) {
     document.getElementById("gps-status").textContent = TEXT[lang].gpsAlreadyActive;
+    renderGpsButtonState();
     return;
   }
 
@@ -479,6 +530,7 @@ function geolocate() {
       timeout: 10000,
     },
   );
+  renderGpsButtonState();
 }
 
 // LT: Perskaito laivo nustatymus iš formos laukų ir atnaujina santrauką. / EN: Reads boat settings from form fields and updates the summary.
@@ -582,14 +634,13 @@ function downloadOfflineArea() {
     zoom: map.getZoom(),
     timestamp: Date.now(),
     bounds: bounds.toBBoxString(),
-    notes:
-      "Offline area saved for navigation / Išsaugota offline zona navigacijai",
+    notes: "Saved map view / Išsaugotas žemėlapio vaizdas",
   };
   localStorage.setItem("marine-navigator-offline", JSON.stringify(offlineData));
   document.getElementById("offline-status").textContent = TEXT[lang].offlineSaved;
 }
 
-// LT: Atkuria anksčiau išsaugotą offline zoną, jei tokia yra. / EN: Restores the previously saved offline area when one exists.
+// LT: Atkuria anksčiau išsaugotą žemėlapio vaizdą, jei toks yra. / EN: Restores the previously saved map view when one exists.
 function loadOfflineArea() {
   const offlineData = localStorage.getItem("marine-navigator-offline");
   if (!offlineData) {
@@ -675,7 +726,13 @@ function setupUI() {
     if (event.target.id === "menu-window") closeMenu();
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeMenu();
+    if (event.key !== "Escape") return;
+
+    if (waypointMode) {
+      waypointMode = false;
+      updateWaypointModeUI(false);
+    }
+    closeMenu();
   });
 
   // LT: Mygtukai jungiami pagal ID, kad nebūtų supainioti su kitais tokios pačios klasės mygtukais. / EN: Buttons are wired by ID so they are not confused with other buttons using the same class.
@@ -685,8 +742,8 @@ function setupUI() {
   const waypointBtn = document.getElementById("waypoint-mode-btn");
   if (waypointBtn) {
     waypointBtn.addEventListener("click", () => {
-      waypointMode = true;
-      updateWaypointModeUI(true);
+      waypointMode = !waypointMode;
+      updateWaypointModeUI(waypointMode);
     });
   }
 

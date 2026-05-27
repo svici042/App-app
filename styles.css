@@ -192,7 +192,7 @@ button {
     box-shadow: var(--shadow);
 }
 
-/* LT: Mažos etiketės ant žemėlapio gyliams ir sonaro centrui. / EN: Small map labels for depths and the sonar center. */
+/* LT: Mažos etiketės ant žemėlapio gyliams ir matavimų šaltiniams. / EN: Small map labels for depths and survey sources. */
 .depth-label,
 .sonar-label {
     border: 1px solid rgba(255,255,255,0.34);
@@ -360,11 +360,22 @@ button {
     opacity: 0.95;
 }
 
+.btn-strong.is-active,
+.btn-light.is-active {
+    outline: 2px solid var(--success);
+    outline-offset: 2px;
+}
+
 .btn-light {
     background: rgba(255,255,255,0.08);
     color: var(--text);
     padding: 0.95rem 1.2rem;
     border-radius: 18px;
+}
+
+.btn-light.is-active {
+    background: rgba(45, 212, 165, 0.18);
+    color: var(--text);
 }
 
 .toggle {

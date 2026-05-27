@@ -2,7 +2,7 @@
 
 ## LT
 
-`Marine Navigator` yra interaktyvi jūrinės navigacijos žiniatinklio aplikacija. Ji naudoja `Leaflet` žemėlapį, realaus laiko naršyklės GPS, dinaminius gylių taškus, sonaro sluoksnį, supaprastintą 3D dugno reljefo sluoksnį ir maršruto planavimą.
+`Marine Navigator` yra interaktyvi jūrinės navigacijos žiniatinklio aplikacija. Ji naudoja `Leaflet` žemėlapį, realaus laiko naršyklės GPS, realius EMODnet batimetrijos sluoksnius, GEBCO dugno reljefą ir maršruto planavimą.
 
 ### Funkcijos
 
@@ -15,9 +15,11 @@
 - Maršruto taškų pridėjimas paspaudus žemėlapį.
 - Maršruto atstumo skaičiavimas ir maršruto išvalymas.
 - Modalinis meniu langas, kad nustatymai neužkrautų pagrindinio žemėlapio vaizdo.
+- Kompaktiškas sluoksnių valdiklis, kuris neuždengia žemėlapio, kai nėra naudojamas.
+- Aiškios aktyvios GPS ir maršruto taško mygtukų būsenos.
 - Kalbos perjungimas: LT / EN.
 - Temos perjungimas: diena / naktis.
-- Offline zonos išsaugojimas ir atkūrimas naudojant `localStorage`.
+- Žemėlapio centro, priartinimo ir matomos srities išsaugojimas bei atkūrimas naudojant `localStorage`.
 
 ### Kaip paleisti
 
@@ -35,7 +37,7 @@ Rekomenduojama naudoti Live Server, nes GPS leidimai ir išoriniai žemėlapių 
 
 ## EN
 
-`Marine Navigator` is an interactive marine navigation web application. It uses a `Leaflet` map, browser-based real-time GPS, dynamic depth markers, a sonar overlay, a simplified 3D seabed relief overlay, and route planning.
+`Marine Navigator` is an interactive marine navigation web application. It uses a `Leaflet` map, browser-based real-time GPS, real EMODnet bathymetry layers, GEBCO seabed relief, and route planning.
 
 ### Features
 
@@ -48,9 +50,11 @@ Rekomenduojama naudoti Live Server, nes GPS leidimai ir išoriniai žemėlapių 
 - Add route waypoints by clicking the map.
 - Route distance calculation and route clearing.
 - Modal menu window so settings do not take over the main map view.
+- Compact layer control that does not cover the map when it is not being used.
+- Clear active states for the GPS and waypoint buttons.
 - Language switch: LT / EN.
 - Theme switch: day / night.
-- Offline area save and restore using `localStorage`.
+- Saved map center, zoom, and visible bounds restore using `localStorage`.
 
 ### How To Run
 

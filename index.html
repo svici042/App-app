@@ -14,7 +14,7 @@
             <article class="card header-card">
                 <div>
                     <h1>Marine Navigator</h1>
-                    <p id="app-description">Interaktyvi navigacijos programa jūrai su GPS, gylių, sonaro ir maršrutų planavimo funkcijomis.</p>
+                    <p id="app-description">Interaktyvi jūrinės navigacijos programa su GPS, realiais batimetrijos sluoksniais ir maršrutų planavimu.</p>
                 </div>
 
                 <div class="top-actions">
@@ -25,7 +25,7 @@
                     <button data-tab="tab-navigation">Navigacija</button>
                     <button data-tab="tab-charts">Žemėlapiai</button>
                     <button data-tab="tab-settings">Nustatymai</button>
-                    <button data-tab="tab-offline">Offline</button>
+                    <button data-tab="tab-offline">Išsaugotas vaizdas</button>
                 </div>
             </article>
 
@@ -52,7 +52,7 @@
                 </div>
             </article>
 
-            <!-- LT: Žemėlapių panelis: paaiškina gylių, sonaro ir reljefo sluoksnius. / EN: Charts panel explaining depth, sonar, and relief layers. -->
+            <!-- LT: Žemėlapių panelis: paaiškina gylių, matavimų šaltinių ir reljefo sluoksnius. / EN: Charts panel explaining depth, survey source, and relief layers. -->
             <article class="card tab-panel hidden" id="tab-charts">
                 <h3 id="charts-title">Žemėlapio sluoksniai</h3>
                 <p class="small-note" id="charts-description">Matomi realūs EMODnet gyliai, gylio kontūrai, matavimų šaltiniai ir GEBCO dugno reljefas.</p>
@@ -81,13 +81,13 @@
                 </div>
             </article>
 
-            <!-- LT: Offline panelis: saugo ir atkuria dabartinę žemėlapio zoną. / EN: Offline panel for saving and restoring the current map area. -->
+            <!-- LT: Išsaugoto vaizdo panelis saugo ir atkuria dabartinę žemėlapio zoną. / EN: Saved view panel saves and restores the current map area. -->
             <article class="card tab-panel hidden" id="tab-offline">
-                <h3 id="offline-title">Offline funkcijos</h3>
-                <p class="small-note" id="offline-description">Išsaugokite pasirinktą sritį naudodami vietinę saugyklą.</p>
+                <h3 id="offline-title">Išsaugotas žemėlapio vaizdas</h3>
+                <p class="small-note" id="offline-description">Išsaugokite dabartinį žemėlapio centrą, priartinimą ir matomą sritį.</p>
                 <div class="actions">
-                    <button class="btn-strong" id="download-offline" type="button">Parsisiųsti zoną</button>
-                    <button class="btn-light" id="load-offline" type="button">Įkelti offline</button>
+                    <button class="btn-strong" id="download-offline" type="button">Išsaugoti vaizdą</button>
+                    <button class="btn-light" id="load-offline" type="button">Atkurti vaizdą</button>
                 </div>
                 <div class="info-card">
                     <h3 id="offline-status-title">Statusas</h3>
@@ -111,7 +111,7 @@
                     <p id="terrain-description">GEBCO shaded relief sluoksnis paryškina tikrą dugno reljefą.</p>
                 </div>
             </div>
-            <footer id="map-footer">Palieskite žemėlapį, kad pridėtumėte maršruto tašką.</footer>
+            <footer id="map-footer">Palieskite žemėlapį realiam gyliui. Maršruto taškams naudokite mygtuką.</footer>
         </section>
     </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
