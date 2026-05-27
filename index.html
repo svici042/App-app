@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="media/icons/icon-192.png">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 </head>
 <body>
     <div class="app-shell">
@@ -46,16 +46,31 @@
             <article class="card tab-panel hidden" id="tab-navigation">
                 <h3 id="gps-title">Realaus laiko GPS</h3>
                 <p id="gps-status">...</p>
+                <p class="small-note" id="gps-metrics">Greitis: -- kn · Kryptis: --°</p>
                 <div class="actions">
                     <button class="btn-strong" type="button" id="gps-start">Paleisti GPS</button>
                     <button class="btn-light" type="button" id="gps-stop">Stabdyti GPS</button>
                     <button class="btn-light" type="button" id="waypoint-mode-btn">Pridėti maršruto tašką</button>
                     <button class="btn-light" type="button" id="clear-route">Išvalyti maršrutą</button>
+                    <button class="btn-light" type="button" id="measure-mode-btn">Matuoti</button>
+                    <button class="btn-light danger-action" type="button" id="mob-btn">MOB / SOS</button>
                 </div>
                 <div class="info-card">
                     <h3 id="route-distance-title">Maršruto atstumas</h3>
                     <p id="route-distance">Maršrutas tuščias</p>
                     <ol class="waypoint-list" id="waypoint-list"></ol>
+                    <div class="actions compact-actions">
+                        <button class="btn-light" type="button" id="export-gpx">Eksportuoti GPX</button>
+                        <label class="file-action">
+                            <span id="import-gpx-label">Importuoti GPX</span>
+                            <input id="import-gpx" type="file" accept=".gpx,application/gpx+xml">
+                        </label>
+                        <button class="btn-light" type="button" id="save-route">Išsaugoti maršrutą</button>
+                    </div>
+                    <label class="stacked-control">
+                        <span id="route-history-label">Išsaugoti maršrutai</span>
+                        <select id="route-history"></select>
+                    </label>
                 </div>
             </article>
 
@@ -76,6 +91,7 @@
                     <label><span id="boat-length-label">Laivo ilgis (m)</span><input id="boat-length" type="number" min="5" max="40" value="12"></label>
                     <label><span id="boat-speed-label">Greitis (kn)</span><input id="boat-speed" type="number" min="5" max="45" value="18"></label>
                     <label><span id="boat-consumption-label">Kuro sąnaudos (l/h)</span><input id="boat-consumption" type="number" min="5" max="120" value="35"></label>
+                    <label><span id="min-depth-label">Min. saugus gylis (m)</span><input id="min-depth" type="number" min="0" max="50" value="2"></label>
                     <label><span id="distance-unit-label">Išmatavimų vienetai</span><select id="distance-unit">
                         <option value="metric">Metric / km</option>
                         <option value="imperial">Imperial / mi</option>
@@ -91,14 +107,22 @@
             <!-- LT: Išsaugoto vaizdo panelis saugo ir atkuria dabartinę žemėlapio zoną. / EN: Saved view panel saves and restores the current map area. -->
             <article class="card tab-panel hidden" id="tab-offline">
                 <h3 id="offline-title">Išsaugotas žemėlapio vaizdas</h3>
-                <p class="small-note" id="offline-description">Išsaugokite dabartinį žemėlapio centrą, priartinimą ir matomas plyteles.</p>
+                <p class="small-note" id="offline-description">Išsaugokite pasirinktą žemėlapio zoną ir zoom lygius.</p>
+                <div class="fieldset compact-fieldset">
+                    <label><span id="offline-min-zoom-label">Min zoom</span><input id="offline-min-zoom" type="number" min="1" max="18" value="7"></label>
+                    <label><span id="offline-max-zoom-label">Max zoom</span><input id="offline-max-zoom" type="number" min="1" max="18" value="9"></label>
+                </div>
                 <div class="actions">
-                    <button class="btn-strong" id="download-offline" type="button">Išsaugoti vaizdą</button>
+                    <button class="btn-strong" id="download-offline" type="button">Atsisiųsti zoną</button>
                     <button class="btn-light" id="load-offline" type="button">Atkurti vaizdą</button>
+                    <button class="btn-light" id="clear-offline" type="button">Išvalyti cache</button>
+                    <button class="btn-light" id="install-app" type="button">Įdiegti app</button>
                 </div>
                 <div class="info-card">
                     <h3 id="offline-status-title">Statusas</h3>
                     <p id="offline-status">Laukia</p>
+                    <progress id="offline-progress" value="0" max="100"></progress>
+                    <p class="small-note" id="pwa-status">PWA tikrinama...</p>
                 </div>
             </article>
                 </div>
@@ -124,8 +148,8 @@
             </div>
         </section>
     </div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="vendor/leaflet-rotate/leaflet-rotate-src.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

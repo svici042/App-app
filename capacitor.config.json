@@ -1,0 +1,9 @@
+{
+  "appId": "com.lovlaus.marinenavigator",
+  "appName": "Marine Navigator",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

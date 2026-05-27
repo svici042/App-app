@@ -416,6 +416,50 @@ button {
     background: rgba(45, 212, 165, 0.18);
 }
 
+.danger-action {
+    background: rgba(255, 107, 114, 0.2);
+}
+
+.compact-actions {
+    margin-top: 0.25rem;
+}
+
+.file-action {
+    display: inline-grid;
+    place-items: center;
+    padding: 0.62rem 0.8rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text);
+    font-size: 0.88rem;
+    text-align: center;
+    cursor: pointer;
+}
+
+.file-action input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.stacked-control {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.stacked-control select {
+    width: 100%;
+    padding: 0.55rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+}
+
 .waypoint-list {
     display: grid;
     gap: 0.4rem;
