@@ -65,7 +65,10 @@ test("offline panel exposes area download controls", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "Išsaugotas vaizdas" }).click();
+  await expect(page.locator("#offline-area-name")).toBeVisible();
+  await expect(page.locator("#offline-area-list")).toBeVisible();
   await expect(page.locator("#offline-min-zoom")).toBeVisible();
   await expect(page.locator("#offline-max-zoom")).toBeVisible();
+  await expect(page.locator("#delete-offline")).toBeVisible();
   await expect(page.locator("#offline-progress")).toBeVisible();
 });

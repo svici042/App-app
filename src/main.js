@@ -6,7 +6,14 @@
 
 import "../vendor/leaflet/leaflet.js";
 import "../vendor/leaflet-rotate/leaflet-rotate-src.js";
-import { CACHE_NAME, ROUTE_HISTORY_KEY, PROXY_BASE_URL, TILE_SOURCES, WMS_SOURCES } from "./config.js";
+import {
+  CACHE_NAME,
+  OFFLINE_AREAS_KEY,
+  ROUTE_HISTORY_KEY,
+  PROXY_BASE_URL,
+  TILE_SOURCES,
+  WMS_SOURCES,
+} from "./config.js";
 import { TEXT } from "./i18n.js";
 import { createMap, createMapPanes } from "./map.js";
 import { getNativePosition, metersPerSecondToKnots } from "./gps.js";
@@ -164,11 +171,17 @@ function renderAllTexts() {
   setText("estimates-title", t.estimatesTitle);
   setText("offline-title", t.offlineTitle);
   setText("offline-description", t.offlineDescription);
+  setText("offline-name-label", t.offlineNameLabel);
+  document
+    .getElementById("offline-area-name")
+    ?.setAttribute("placeholder", t.offlineNamePlaceholder);
+  setText("offline-area-list-label", t.offlineAreaListLabel);
   setText("offline-min-zoom-label", t.offlineMinZoom);
   setText("offline-max-zoom-label", t.offlineMaxZoom);
   setText("download-offline", t.downloadOffline);
   setText("cancel-offline", t.cancelOffline);
   setText("load-offline", t.loadOffline);
+  setText("delete-offline", t.deleteOffline);
   setText("clear-offline", t.clearOffline);
   setText("install-app", t.installApp);
   setText("offline-status-title", t.offlineStatusTitle);
@@ -189,6 +202,7 @@ function renderAllTexts() {
   renderOrientationButton();
   renderWaypointList();
   renderRouteHistory();
+  renderOfflineAreas();
   renderPwaStatus();
   renderBoatPreview();
 
@@ -883,6 +897,68 @@ async function cacheVisibleTiles() {
     .length;
 }
 
+function readOfflineAreas() {
+  try {
+    const areas = JSON.parse(localStorage.getItem(OFFLINE_AREAS_KEY) || "[]");
+    return Array.isArray(areas) ? areas : [];
+  } catch (error) {
+    localStorage.removeItem(OFFLINE_AREAS_KEY);
+    return [];
+  }
+}
+
+function saveOfflineAreas(areas) {
+  localStorage.setItem(OFFLINE_AREAS_KEY, JSON.stringify(areas));
+}
+
+function formatDateTime(timestamp) {
+  return new Intl.DateTimeFormat(lang === "lt" ? "lt-LT" : "en", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(timestamp));
+}
+
+function getSelectedOfflineArea() {
+  const select = document.getElementById("offline-area-list");
+  const areas = readOfflineAreas();
+  const selectedId = select?.value || areas[0]?.id;
+  return areas.find((area) => area.id === selectedId) || null;
+}
+
+function renderOfflineAreas() {
+  const select = document.getElementById("offline-area-list");
+  if (!select) return;
+
+  const t = TEXT[lang] || TEXT.lt;
+  const selectedId = select.value;
+  const areas = readOfflineAreas();
+  select.innerHTML = "";
+
+  if (areas.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = t.offlineAreaEmpty;
+    select.appendChild(option);
+    return;
+  }
+
+  areas.forEach((area) => {
+    const option = document.createElement("option");
+    option.value = area.id;
+    option.textContent = t.offlineAreaOption({
+      ...area,
+      dateLabel: formatDateTime(area.timestamp),
+      sizeLabel: formatBytes(area.estimatedBytes || 0),
+      zoomLabel: `${area.minZoom}-${area.maxZoom}`,
+    });
+    select.appendChild(option);
+  });
+
+  if (areas.some((area) => area.id === selectedId)) {
+    select.value = selectedId;
+  }
+}
+
 // LT: Į cache įrašo zonos plyteles ir grąžina kiek jų pavyko išsaugoti. / EN: Stores area tiles in cache and returns how many were saved.
 async function cacheTileUrls(urls, signal) {
   if (!("caches" in window)) return 0;
@@ -953,19 +1029,30 @@ async function downloadOfflineArea() {
   const { minZoom, maxZoom } = getOfflineZoomRange();
   const template = TILE_SOURCES[activeBaseLayerKey] || TILE_SOURCES.Default;
   const tileUrls = generateOfflineTileUrls(bounds, minZoom, maxZoom, template);
+  const timestamp = Date.now();
+  const nameInput = document.getElementById("offline-area-name");
+  const name =
+    nameInput?.value.trim() ||
+    TEXT[lang].offlineAreaDefaultName(formatDateTime(timestamp));
+  const estimatedBytes = estimateTileCacheSize(tileUrls.length);
   offlineAbortController = new AbortController();
+  const center = map.getCenter();
   const offlineData = {
-    center: map.getCenter(),
+    id: `area-${timestamp}`,
+    name,
+    center: { lat: center.lat, lng: center.lng },
     zoom: map.getZoom(),
-    timestamp: Date.now(),
+    timestamp,
     bounds: bounds.toBBoxString(),
     baseLayer: activeBaseLayerKey,
     minZoom,
     maxZoom,
     tileCount: tileUrls.length,
+    cachedTileCount: 0,
+    estimatedBytes,
+    tileUrls,
     notes: "Saved map view / Išsaugotas žemėlapio vaizdas",
   };
-  localStorage.setItem("marine-navigator-offline", JSON.stringify(offlineData));
   let cachedTileCount = 0;
   try {
     cachedTileCount =
@@ -977,6 +1064,14 @@ async function downloadOfflineArea() {
     return;
   }
   offlineAbortController = null;
+  offlineData.cachedTileCount = cachedTileCount;
+  const areas = readOfflineAreas().filter((area) => area.id !== offlineData.id);
+  areas.unshift(offlineData);
+  saveOfflineAreas(areas.slice(0, 20));
+  localStorage.setItem("marine-navigator-offline", JSON.stringify(offlineData));
+  renderOfflineAreas();
+  const select = document.getElementById("offline-area-list");
+  if (select) select.value = offlineData.id;
   document.getElementById("offline-status").textContent =
     TEXT[lang].offlineSaved(cachedTileCount);
 }
@@ -987,15 +1082,38 @@ function cancelOfflineDownload() {
 
 // LT: Atkuria anksčiau išsaugotą žemėlapio vaizdą, jei toks yra. / EN: Restores the previously saved map view when one exists.
 function loadOfflineArea() {
-  const offlineData = localStorage.getItem("marine-navigator-offline");
-  if (!offlineData) {
+  const selectedArea = getSelectedOfflineArea();
+  const legacyArea = localStorage.getItem("marine-navigator-offline");
+  const data = selectedArea || (legacyArea ? JSON.parse(legacyArea) : null);
+  if (!data) {
     document.getElementById("offline-status").textContent =
       TEXT[lang].offlineNoData;
     return;
   }
-  const data = JSON.parse(offlineData);
   map.setView([data.center.lat, data.center.lng], data.zoom);
   document.getElementById("offline-status").textContent = TEXT[lang].offlineLoaded;
+}
+
+async function deleteSelectedOfflineArea() {
+  const selectedArea = getSelectedOfflineArea();
+  if (!selectedArea) {
+    document.getElementById("offline-status").textContent =
+      TEXT[lang].offlineNoData;
+    return;
+  }
+
+  if ("caches" in window) {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.all((selectedArea.tileUrls || []).map((url) => cache.delete(url)));
+  }
+
+  const areas = readOfflineAreas().filter((area) => area.id !== selectedArea.id);
+  saveOfflineAreas(areas);
+  if (localStorage.getItem("marine-navigator-offline")?.includes(selectedArea.id)) {
+    localStorage.removeItem("marine-navigator-offline");
+  }
+  renderOfflineAreas();
+  setText("offline-status", TEXT[lang].offlineDeleted);
 }
 
 // LT: Išvalo PWA ir žemėlapio cache, kai vartotojas nori atlaisvinti vietos. / EN: Clears PWA and map cache when the user wants to free storage.
@@ -1004,6 +1122,8 @@ async function clearOfflineCache() {
     await caches.delete(CACHE_NAME);
   }
   localStorage.removeItem("marine-navigator-offline");
+  localStorage.removeItem(OFFLINE_AREAS_KEY);
+  renderOfflineAreas();
   setText("offline-status", TEXT[lang].pwaCacheCleared);
   setText("pwa-status", TEXT[lang].pwaCacheCleared);
 }
@@ -1116,6 +1236,9 @@ function setupUI() {
   document
     .getElementById("load-offline")
     .addEventListener("click", loadOfflineArea);
+  document
+    .getElementById("delete-offline")
+    .addEventListener("click", deleteSelectedOfflineArea);
   document
     .getElementById("clear-offline")
     .addEventListener("click", clearOfflineCache);

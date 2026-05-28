@@ -24,6 +24,7 @@
 - [x] Atnaujinti README lietuviškai ir angliškai.
 - [x] Sutvarkyti Live Server konfliktą: CSS perkeltas iš JS importų į `index.html`, kad appas nekristų be Vite transformacijos.
 - [x] Pakelta service worker cache versija į `v2`, kad senas sugedęs cache nebebūtų naudojamas.
+- [x] Pridėtas offline atsisiuntimų manifestas: zonos pavadinimas, ribos, zoom lygiai, dydis, data ir trynimas per UI.
 
 ## Patikrinimai
 
@@ -35,7 +36,7 @@
 ## Tolimesnė modernizacija iki pilnaverčio appo
 
 - [ ] Pakeisti rankinį PWA service worker į `vite-plugin-pwa` arba Workbox su automatiniu hashed build failų precache.
-- [ ] Pridėti offline atsisiuntimų manifestą: zonos pavadinimas, ribos, zoom lygiai, dydis, data ir trynimas per UI.
+- [x] Pridėti offline atsisiuntimų manifestą: zonos pavadinimas, ribos, zoom lygiai, dydis, data ir trynimas per UI.
 - [ ] Įdiegti cache pruning/LRU strategiją, kad offline plytelės neperžengtų vartotojo pasirinktos ribos.
 - [ ] Perkelti proxy cache į SQLite su TTL, dydžio limitais ir administraciniu valymo endpointu.
 - [ ] Produkcijai pakeisti proxy CORS `*` į domenų allowlist per env konfigūraciją.
