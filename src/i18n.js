@@ -69,6 +69,20 @@ export const TEXT = {
     depthsTitle: "Gyliai",
     depthsDescription:
       "Gyliai kraunami iš EMODnet Bathymetry WMS ir REST servisų.",
+    providerHealthTitle: "Tiekėjų būsena",
+    providerHealthChecking: "Tikrinama...",
+    providerHealthOk: "Visi žemėlapio tiekėjai pasiekiami.",
+    providerHealthPartial: "Dalis žemėlapio tiekėjų nepasiekiama.",
+    providerHealthError: "Nepavyko patikrinti tiekėjų būsenos.",
+    providerHealthItem: (name, status, latency) =>
+      `${name}: ${status}${latency ? ` · ${latency} ms` : ""}`,
+    providerOnline: "veikia",
+    providerOffline: "nepasiekiamas",
+    providerNames: {
+      emodnet: "EMODnet",
+      gebco: "GEBCO",
+      openstreetmap: "OpenStreetMap",
+    },
     boatSettingsTitle: "Laivo nustatymai",
     boatLengthLabel: "Laivo ilgis (m)",
     boatSpeedLabel: "Greitis (kn)",
@@ -189,6 +203,20 @@ export const TEXT = {
     depthsTitle: "Depths",
     depthsDescription:
       "Depths are loaded from EMODnet Bathymetry WMS and REST services.",
+    providerHealthTitle: "Provider status",
+    providerHealthChecking: "Checking...",
+    providerHealthOk: "All map providers are reachable.",
+    providerHealthPartial: "Some map providers are unreachable.",
+    providerHealthError: "Could not check provider status.",
+    providerHealthItem: (name, status, latency) =>
+      `${name}: ${status}${latency ? ` · ${latency} ms` : ""}`,
+    providerOnline: "online",
+    providerOffline: "unreachable",
+    providerNames: {
+      emodnet: "EMODnet",
+      gebco: "GEBCO",
+      openstreetmap: "OpenStreetMap",
+    },
     boatSettingsTitle: "Boat settings",
     boatLengthLabel: "Boat length (m)",
     boatSpeedLabel: "Speed (kn)",

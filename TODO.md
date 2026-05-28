@@ -25,6 +25,8 @@
 - [x] Sutvarkyti Live Server konfliktą: CSS perkeltas iš JS importų į `index.html`, kad appas nekristų be Vite transformacijos.
 - [x] Pakelta service worker cache versija į `v2`, kad senas sugedęs cache nebebūtų naudojamas.
 - [x] Pridėtas offline atsisiuntimų manifestas: zonos pavadinimas, ribos, zoom lygiai, dydis, data ir trynimas per UI.
+- [x] Produkcijai proxy CORS `*` pakeičiamas per `PROXY_ALLOWED_ORIGINS` env allowlist.
+- [x] Pridėtas provider health indikatorius EMODnet, GEBCO ir OpenStreetMap būsenai.
 
 ## Patikrinimai
 
@@ -39,8 +41,8 @@
 - [x] Pridėti offline atsisiuntimų manifestą: zonos pavadinimas, ribos, zoom lygiai, dydis, data ir trynimas per UI.
 - [ ] Įdiegti cache pruning/LRU strategiją, kad offline plytelės neperžengtų vartotojo pasirinktos ribos.
 - [ ] Perkelti proxy cache į SQLite su TTL, dydžio limitais ir administraciniu valymo endpointu.
-- [ ] Produkcijai pakeisti proxy CORS `*` į domenų allowlist per env konfigūraciją.
-- [ ] Pridėti provider health indikatorių, kad vartotojas matytų EMODnet/GEBCO/OpenStreetMap būseną.
+- [x] Produkcijai pakeisti proxy CORS `*` į domenų allowlist per env konfigūraciją.
+- [x] Pridėti provider health indikatorių, kad vartotojas matytų EMODnet/GEBCO/OpenStreetMap būseną.
 - [ ] Pridėti žemėlapio šaltinių attribution ir naudojimo taisyklių auditą kiekvienam provider’iui.
 - [ ] Pridėti jūrinius saugumo sluoksnius: uostai, švyturiai, navigaciniai ženklai, draudžiamos zonos.
 - [ ] Sukurti maršruto redagavimą: taškų perrikiavimas, pervadinimas, pastabos ir atskirų maršrutų biblioteka.

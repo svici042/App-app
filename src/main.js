@@ -162,6 +162,8 @@ function renderAllTexts() {
   setText("charts-description", t.chartsDescription);
   setText("depths-title", t.depthsTitle);
   setText("depths-description", t.depthsDescription);
+  setText("provider-health-title", t.providerHealthTitle);
+  setText("provider-health-status", t.providerHealthChecking);
   setText("boat-settings-title", t.boatSettingsTitle);
   setText("boat-length-label", t.boatLengthLabel);
   setText("boat-speed-label", t.boatSpeedLabel);
@@ -959,6 +961,39 @@ function renderOfflineAreas() {
   }
 }
 
+async function renderProviderHealth() {
+  const status = document.getElementById("provider-health-status");
+  const list = document.getElementById("provider-health-list");
+  if (!status || !list) return;
+
+  const t = TEXT[lang] || TEXT.lt;
+  status.textContent = t.providerHealthChecking;
+  list.innerHTML = "";
+
+  try {
+    const response = await fetch(`${PROXY_BASE_URL}/provider-health`, {
+      headers: { Accept: "application/json" },
+    });
+    const health = await response.json();
+    const providers = Array.isArray(health.providers) ? health.providers : [];
+    status.textContent =
+      health.ok && providers.length ? t.providerHealthOk : t.providerHealthPartial;
+
+    providers.forEach((provider) => {
+      const item = document.createElement("li");
+      item.className = provider.ok ? "is-online" : "is-offline";
+      item.textContent = t.providerHealthItem(
+        t.providerNames[provider.id] || provider.id,
+        provider.ok ? t.providerOnline : t.providerOffline,
+        provider.latencyMs,
+      );
+      list.appendChild(item);
+    });
+  } catch (error) {
+    status.textContent = t.providerHealthError;
+  }
+}
+
 // LT: Į cache įrašo zonos plyteles ir grąžina kiek jų pavyko išsaugoti. / EN: Stores area tiles in cache and returns how many were saved.
 async function cacheTileUrls(urls, signal) {
   if (!("caches" in window)) return 0;
@@ -1334,6 +1369,7 @@ function setupUI() {
       document.documentElement.lang = lang;
       renderAllTexts();
       renderLayerControl();
+      renderProviderHealth();
       applyMapOrientation();
       if (routeState.markers.length) {
         refreshRoute();
@@ -1360,6 +1396,7 @@ function init() {
   setupUI();
   document.getElementById("gps-status").textContent = TEXT[lang].gpsStatusWaiting;
   applyMapOrientation();
+  renderProviderHealth();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker

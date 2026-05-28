@@ -13,21 +13,42 @@ const CACHE_TTL_MS = 1000 * 60 * 60;
 const MAX_URL_LENGTH = 4096;
 const memoryCache = new Map();
 const DISK_CACHE_DIR = path.resolve(".proxy-cache");
+const ALLOWED_ORIGINS = (process.env.PROXY_ALLOWED_ORIGINS || "*")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const PROVIDER_TIMEOUT_MS = Number(process.env.PROXY_PROVIDER_TIMEOUT_MS || 3000);
 
 const SOURCES = {
   emodnetWms: "https://ows.emodnet-bathymetry.eu/wms",
   gebcoWms: "https://wms.gebco.net/mapserv",
   emodnetDepth: "https://rest.emodnet-bathymetry.eu/depth_sample",
+  osmTile: "https://a.tile.openstreetmap.org/0/0/0.png",
 };
 
-function send(response, status, body, headers = {}) {
-  response.writeHead(status, {
-    "Access-Control-Allow-Origin": "*",
+function getCorsOrigin(request) {
+  const requestOrigin = request?.headers.origin;
+  if (ALLOWED_ORIGINS.includes("*")) return "*";
+  if (!requestOrigin) return ALLOWED_ORIGINS[0] || null;
+  if (requestOrigin && ALLOWED_ORIGINS.includes(requestOrigin)) return requestOrigin;
+  return null;
+}
+
+function baseHeaders(request) {
+  const origin = getCorsOrigin(request);
+  return {
+    ...(origin ? { "Access-Control-Allow-Origin": origin, Vary: "Origin" } : {}),
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Cross-Origin-Resource-Policy": "cross-origin",
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
+  };
+}
+
+function send(response, status, body, headers = {}, request = null) {
+  response.writeHead(status, {
+    ...baseHeaders(request),
     ...headers,
   });
   response.end(body);
@@ -78,14 +99,14 @@ async function diskCacheSet(key, value) {
   );
 }
 
-async function proxyFetch(targetUrl, response) {
+async function proxyFetch(targetUrl, request, response) {
   const cached = cacheGet(targetUrl) || (await diskCacheGet(targetUrl));
   if (cached) {
     send(response, 200, cached.body, {
       "Content-Type": cached.contentType,
       "Cache-Control": "public, max-age=3600",
       "X-Proxy-Cache": "HIT",
-    });
+    }, request);
     return;
   }
 
@@ -102,7 +123,51 @@ async function proxyFetch(targetUrl, response) {
     "Content-Type": contentType,
     "Cache-Control": "public, max-age=3600",
     "X-Proxy-Cache": "MISS",
-  });
+  }, request);
+}
+
+async function checkProvider(id, url) {
+  const startedAt = Date.now();
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+      headers: { Accept: "*/*" },
+    });
+    return {
+      id,
+      ok: response.ok,
+      status: response.status,
+      latencyMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    return {
+      id,
+      ok: false,
+      status: 0,
+      latencyMs: Date.now() - startedAt,
+      error: error.name || "ProviderError",
+    };
+  }
+}
+
+async function providerHealth() {
+  const checks = await Promise.all([
+    checkProvider(
+      "emodnet",
+      `${SOURCES.emodnetWms}?service=WMS&request=GetCapabilities`,
+    ),
+    checkProvider(
+      "gebco",
+      `${SOURCES.gebcoWms}?service=WMS&request=GetCapabilities`,
+    ),
+    checkProvider("openstreetmap", SOURCES.osmTile),
+  ]);
+
+  return {
+    ok: checks.every((check) => check.ok),
+    checkedAt: new Date().toISOString(),
+    providers: checks,
+  };
 }
 
 function appendSearch(baseUrl, searchParams) {
@@ -112,27 +177,41 @@ function appendSearch(baseUrl, searchParams) {
 }
 
 const server = http.createServer(async (request, response) => {
+  if (!getCorsOrigin(request)) {
+    send(response, 403, "Origin not allowed", {}, request);
+    return;
+  }
+
   if (request.method === "OPTIONS") {
-    send(response, 204, "");
+    send(response, 204, "", {}, request);
     return;
   }
 
   if (request.method !== "GET") {
-    send(response, 405, "Method not allowed");
+    send(response, 405, "Method not allowed", {}, request);
     return;
   }
 
   try {
     const requestUrl = new URL(request.url, `http://${request.headers.host}`);
     if (request.url.length > MAX_URL_LENGTH) {
-      send(response, 414, "URI too long");
+      send(response, 414, "URI too long", {}, request);
       return;
     }
 
     if (requestUrl.pathname === "/api/health") {
       send(response, 200, JSON.stringify({ ok: true }), {
         "Content-Type": "application/json",
-      });
+      }, request);
+      return;
+    }
+
+    if (requestUrl.pathname === "/api/provider-health") {
+      const health = await providerHealth();
+      send(response, health.ok ? 200 : 207, JSON.stringify(health), {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      }, request);
       return;
     }
 
@@ -142,31 +221,39 @@ const server = http.createServer(async (request, response) => {
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
         send(response, 400, JSON.stringify({ error: "Invalid lat/lng" }), {
           "Content-Type": "application/json",
-        });
+        }, request);
         return;
       }
 
       const target = new URL(SOURCES.emodnetDepth);
       target.searchParams.set("geom", `POINT(${lng} ${lat})`);
-      await proxyFetch(target.toString(), response);
+      await proxyFetch(target.toString(), request, response);
       return;
     }
 
     if (requestUrl.pathname === "/api/wms/emodnet") {
-      await proxyFetch(appendSearch(SOURCES.emodnetWms, requestUrl.searchParams), response);
+      await proxyFetch(
+        appendSearch(SOURCES.emodnetWms, requestUrl.searchParams),
+        request,
+        response,
+      );
       return;
     }
 
     if (requestUrl.pathname === "/api/wms/gebco") {
-      await proxyFetch(appendSearch(SOURCES.gebcoWms, requestUrl.searchParams), response);
+      await proxyFetch(
+        appendSearch(SOURCES.gebcoWms, requestUrl.searchParams),
+        request,
+        response,
+      );
       return;
     }
 
-    send(response, 404, "Not found");
+    send(response, 404, "Not found", {}, request);
   } catch (error) {
     send(response, 502, JSON.stringify({ error: error.message }), {
       "Content-Type": "application/json",
-    });
+    }, request);
   }
 });
 

@@ -350,6 +350,35 @@ button {
     line-height: 1.45;
 }
 
+.provider-health-list {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.provider-health-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.provider-health-list li::before {
+    content: "";
+    width: 0.55rem;
+    height: 0.55rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--danger);
+}
+
+.provider-health-list li.is-online::before {
+    background: var(--success);
+}
+
 /* LT: Nustatymų formos laukai modaliniame lange. / EN: Settings form fields inside the modal window. */
 .fieldset {
     display: grid;

@@ -72,3 +72,11 @@ test("offline panel exposes area download controls", async ({ page }) => {
   await expect(page.locator("#delete-offline")).toBeVisible();
   await expect(page.locator("#offline-progress")).toBeVisible();
 });
+
+test("charts panel exposes provider health status", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Žemėlapiai" }).click();
+  await expect(page.locator("#provider-health-status")).toBeVisible();
+  await expect(page.locator("#provider-health-list")).toBeVisible();
+});

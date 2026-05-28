@@ -10,6 +10,7 @@
 - CSS failai kraunami per `index.html`, todėl appas neužlūžta ir paprastame statiniame serveryje.
 - Tikri EMODnet batimetrijos WMS sluoksniai ir GEBCO shaded relief dugno reljefas.
 - Realaus gylio mėginiai per lokalų proxy su tiesioginiu EMODnet fallback.
+- Tiekėjų būsenos indikatorius rodo EMODnet, GEBCO ir OpenStreetMap pasiekiamumą.
 - GPS sekimas, greitis, kryptis, GPS start/stop ir žemėlapio orientacija pagal šiaurę arba maršruto kryptį.
 - Maršruto taškai, atstumo skaičiavimas, taškų trynimas, GPX importas/eksportas ir maršrutų istorija.
 - MOB/SOS taškas su koordinačių bendrinimu.
@@ -17,10 +18,10 @@
 - Saugus minimalus gylis ir seklumos įspėjimas realaus gylio lange.
 - Kompaktiškas sluoksnių valdiklis, kuris susitraukia nenaudojamas.
 - LT/EN kalbos, dienos/nakties tema ir mažesni ergonomiški valdikliai.
-- Offline zonos atsisiuntimas pagal pasirinktą plotą ir zoom lygius su dydžio įvertinimu, progresu, atšaukimu ir cache kvotos rodymu.
+- Offline zonos atsisiuntimas pagal pasirinktą plotą ir zoom lygius su dydžio įvertinimu, progresu, atšaukimu, cache kvotos rodymu ir išsaugotų zonų manifestu.
 - PWA manifestas, service worker, install mygtukas, offline statusas ir cache išvalymas.
 - Capacitor native pluginai: Geolocation, Filesystem ir Share.
-- Node proxy serveris su CORS, saugumo headeriais ir diskiniu `.proxy-cache/` cache.
+- Node proxy serveris su env valdomu CORS allowlist, saugumo headeriais, provider health endpointu ir diskiniu `.proxy-cache/` cache.
 - Playwright testai ir GitHub Actions CI (`check`, `build`, `test`).
 
 ### Projekto struktūra
@@ -67,12 +68,20 @@
 - Android manifestas turi interneto ir tikslios/apytikslės lokacijos teises.
 - iOS `Info.plist` turi lokacijos naudojimo aprašymus.
 
+### Proxy konfigūracija
+
+- `PORT` - proxy portas, pagal nutylėjimą `8787`.
+- `PROXY_ALLOWED_ORIGINS` - kableliais atskirtas CORS origin allowlist. Pagal nutylėjimą `*`, patogu lokaliam dev režimui. Produkcijai nustatykite konkrečius domenus, pvz. `https://example.com,https://app.example.com`.
+- `PROXY_PROVIDER_TIMEOUT_MS` - provider health patikros timeout milisekundėmis, pagal nutylėjimą `3000`.
+- `/api/health` - paprastas proxy gyvybingumo patikrinimas.
+- `/api/provider-health` - EMODnet, GEBCO ir OpenStreetMap pasiekiamumo bei latency patikrinimas.
+
 ### Saugumo pastabos
 
 - Appas nėra sertifikuota navigacijos saugumo sistema. Batimetrija priklauso nuo EMODnet/GEBCO servisų prieinamumo ir tikslumo.
-- Proxy leidžia tik whitelist’intus EMODnet/GEBCO hostus, riboja URL ilgį, prideda `nosniff`, `no-referrer` ir CORP headerius.
-- Produkcijoje verta pakeisti `Access-Control-Allow-Origin: *` į konkretų domenų sąrašą.
-- Offline cache gali užimti daug vietos, todėl prieš atsisiuntimą rodoma dydžio ir kvotos informacija.
+- Proxy leidžia tik whitelist’intus EMODnet/GEBCO/OpenStreetMap hostus, riboja URL ilgį, prideda `nosniff`, `no-referrer` ir CORP headerius.
+- Produkcijoje nustatykite `PROXY_ALLOWED_ORIGINS`, kad CORS veiktų tik su leidžiamais domenais.
+- Offline cache gali užimti daug vietos, todėl prieš atsisiuntimą rodoma dydžio ir kvotos informacija, o išsaugotas zonas galima trinti atskirai.
 
 ## EN
 
@@ -84,6 +93,7 @@
 - CSS files are loaded through `index.html`, so the app also avoids crashes on a plain static server.
 - Real EMODnet bathymetry WMS layers and GEBCO shaded seabed relief.
 - Real depth samples through the local proxy with direct EMODnet fallback.
+- Provider status indicator shows EMODnet, GEBCO, and OpenStreetMap availability.
 - GPS tracking, speed, heading, GPS start/stop, and north-up or route-heading-up map orientation.
 - Route waypoints, distance calculation, waypoint deletion, GPX import/export, and route history.
 - MOB/SOS marker with coordinate sharing.
@@ -91,10 +101,10 @@
 - Minimum safe depth and shallow-water warning in the real depth popup.
 - Compact layer control that collapses when unused.
 - LT/EN language switch, day/night theme, and smaller ergonomic controls.
-- Offline area download by selected bounds and zoom levels with size estimate, progress, cancel action, and cache quota display.
+- Offline area download by selected bounds and zoom levels with size estimate, progress, cancel action, cache quota display, and a saved-area manifest.
 - PWA manifest, service worker, install button, offline status, and cache clearing.
 - Capacitor native plugins: Geolocation, Filesystem, and Share.
-- Node proxy server with CORS, security headers, and disk-backed `.proxy-cache/`.
+- Node proxy server with env-controlled CORS allowlist, security headers, provider health endpoint, and disk-backed `.proxy-cache/`.
 - Playwright tests and GitHub Actions CI (`check`, `build`, `test`).
 
 ### Project Structure
@@ -141,12 +151,20 @@
 - The Android manifest includes internet and coarse/fine location permissions.
 - iOS `Info.plist` includes location usage descriptions.
 
+### Proxy Configuration
+
+- `PORT` - proxy port, defaults to `8787`.
+- `PROXY_ALLOWED_ORIGINS` - comma-separated CORS origin allowlist. Defaults to `*` for local development. In production, set explicit domains, e.g. `https://example.com,https://app.example.com`.
+- `PROXY_PROVIDER_TIMEOUT_MS` - provider health timeout in milliseconds, defaults to `3000`.
+- `/api/health` - simple proxy liveness check.
+- `/api/provider-health` - EMODnet, GEBCO, and OpenStreetMap availability and latency check.
+
 ### Security Notes
 
 - The app is not a certified navigation safety system. Bathymetry depends on EMODnet/GEBCO service availability and accuracy.
-- The proxy only allows whitelisted EMODnet/GEBCO hosts, limits URL length, and adds `nosniff`, `no-referrer`, and CORP headers.
-- For production, replace `Access-Control-Allow-Origin: *` with an explicit allowed-origin list.
-- Offline cache can use significant storage, so the app shows size and quota information before download.
+- The proxy only calls whitelisted EMODnet/GEBCO/OpenStreetMap hosts, limits URL length, and adds `nosniff`, `no-referrer`, and CORP headers.
+- In production, set `PROXY_ALLOWED_ORIGINS` so CORS only works for approved domains.
+- Offline cache can use significant storage, so the app shows size and quota information before download and allows deleting saved areas individually.
 
 ## LovLaus Copyright
 
