@@ -47,6 +47,7 @@ let deferredInstallPrompt = null;
 let mobMarker = null;
 let activeBaseLayerKey = "Default";
 let offlineAbortController = null;
+let lastMenuTrigger = null;
 
 // LT: Matavimo režimas turi savo žymeklius ir liniją, kad nesimaišytų su maršrutu. / EN: Measurement mode has its own markers and line so it does not mix with the route.
 const measureState = {
@@ -1025,6 +1026,12 @@ function activateTab(tabName) {
   const t = TEXT[lang] || TEXT.lt;
   const menuWindow = document.getElementById("menu-window");
   const menuTitle = document.getElementById("menu-title");
+  const closeButton = document.getElementById("close-menu");
+  const trigger = document.querySelector(`.nav-tabs button[data-tab="${tabName}"]`);
+
+  if (trigger) {
+    lastMenuTrigger = trigger;
+  }
 
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("hidden", panel.id !== tabName);
@@ -1046,6 +1053,8 @@ function activateTab(tabName) {
   if (menuWindow) {
     menuWindow.classList.remove("hidden");
     menuWindow.setAttribute("aria-hidden", "false");
+    menuWindow.removeAttribute("inert");
+    closeButton?.focus();
   }
 }
 
@@ -1054,8 +1063,20 @@ function closeMenu() {
   const menuWindow = document.getElementById("menu-window");
   if (!menuWindow) return;
 
+  const wasOpen = !menuWindow.classList.contains("hidden");
+  if (wasOpen) {
+    const fallbackTrigger = document.querySelector(".nav-tabs button.active");
+    const returnTarget = lastMenuTrigger || fallbackTrigger;
+    returnTarget?.focus();
+
+    if (menuWindow.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+  }
+
   menuWindow.classList.add("hidden");
   menuWindow.setAttribute("aria-hidden", "true");
+  menuWindow.setAttribute("inert", "");
   document.querySelectorAll(".nav-tabs button").forEach((btn) => {
     btn.classList.remove("active");
   });

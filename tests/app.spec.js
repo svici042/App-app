@@ -9,6 +9,11 @@ test("loads the map shell and PWA metadata", async ({ page }) => {
     "href",
     "manifest.json",
   );
+  await expect(page.locator('meta[name="mobile-web-app-capable"]')).toHaveAttribute(
+    "content",
+    "yes",
+  );
+  await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveCount(0);
 });
 
 test("opens navigation menu and toggles route tools", async ({ page }) => {
@@ -22,6 +27,30 @@ test("opens navigation menu and toggles route tools", async ({ page }) => {
 
   await page.locator("#measure-mode-btn").click();
   await expect(page.locator("#measure-mode-btn")).toContainText("Pasirinkite");
+});
+
+test("closes the menu without leaving focus inside hidden content", async ({ page }) => {
+  const ariaWarnings = [];
+  page.on("console", (message) => {
+    if (message.type() === "warning" && message.text().includes("aria-hidden")) {
+      ariaWarnings.push(message.text());
+    }
+  });
+
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Navigacija" }).click();
+  await expect(page.locator("#menu-window")).toHaveAttribute("aria-hidden", "false");
+  await expect(page.locator("#menu-window")).not.toHaveAttribute("inert", "");
+  await expect(page.locator("#close-menu")).toBeFocused();
+
+  await page.locator("#close-menu").click();
+
+  await expect(page.locator("#menu-window")).toHaveClass(/hidden/);
+  await expect(page.locator("#menu-window")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator("#menu-window")).toHaveAttribute("inert", "");
+  await expect(page.getByRole("button", { name: "Navigacija" })).toBeFocused();
+  expect(ariaWarnings).toEqual([]);
 });
 
 test("language switch updates labels", async ({ page }) => {
