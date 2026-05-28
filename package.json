@@ -11,7 +11,7 @@
     "proxy": "node server/proxy-server.js",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
-    "check": "node --check app.js && node --check service-worker.js && node --check server/proxy-server.js",
+    "check": "node --check src/main.js && node --check service-worker.js && node --check server/proxy-server.js",
     "cap:init": "cap init \"Marine Navigator\" \"com.lovlaus.marinenavigator\" --web-dir=dist",
     "cap:add:android": "cap add android",
     "cap:add:ios": "cap add ios",
@@ -26,5 +26,10 @@
     "@capacitor/ios": "^8.0.0",
     "@playwright/test": "^1.57.0",
     "vite": "^7.2.0"
+  },
+  "dependencies": {
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/share": "^8.0.1"
   }
 }

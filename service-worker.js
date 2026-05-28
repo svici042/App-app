@@ -3,21 +3,12 @@
     EN: The service worker caches app files and map tiles that have already been seen.
 */
 
-const CACHE_NAME = "marine-navigator-map-cache-v1";
+const CACHE_NAME = "marine-navigator-map-cache-v2";
 const APP_FILES = [
   "./",
   "./index.html",
-  "./styles.css",
-  "./app.js",
   "./manifest.json",
-  "./vendor/leaflet/leaflet.css",
-  "./vendor/leaflet/leaflet.js",
-  "./vendor/leaflet/images/layers.png",
-  "./vendor/leaflet/images/layers-2x.png",
-  "./vendor/leaflet/images/marker-icon.png",
-  "./vendor/leaflet/images/marker-icon-2x.png",
-  "./vendor/leaflet/images/marker-shadow.png",
-  "./vendor/leaflet-rotate/leaflet-rotate-src.js",
+  "./media/logo/LovLaus logo.png",
   "./media/icons/icon-192.png",
   "./media/icons/icon-512.png",
 ];

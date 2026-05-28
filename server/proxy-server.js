@@ -4,10 +4,15 @@
 */
 
 import http from "node:http";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import path from "node:path";
 
 const PORT = Number(process.env.PORT || 8787);
 const CACHE_TTL_MS = 1000 * 60 * 60;
+const MAX_URL_LENGTH = 4096;
 const memoryCache = new Map();
+const DISK_CACHE_DIR = path.resolve(".proxy-cache");
 
 const SOURCES = {
   emodnetWms: "https://ows.emodnet-bathymetry.eu/wms",
@@ -20,6 +25,9 @@ function send(response, status, body, headers = {}) {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Cross-Origin-Resource-Policy": "cross-origin",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
     ...headers,
   });
   response.end(body);
@@ -38,8 +46,40 @@ function cacheSet(key, value) {
   memoryCache.set(key, { ...value, createdAt: Date.now() });
 }
 
+function cacheFilePath(key) {
+  return path.join(DISK_CACHE_DIR, `${createHash("sha256").update(key).digest("hex")}.json`);
+}
+
+async function diskCacheGet(key) {
+  try {
+    const filePath = cacheFilePath(key);
+    const fileStat = await stat(filePath);
+    if (Date.now() - fileStat.mtimeMs > CACHE_TTL_MS) return null;
+    const item = JSON.parse(await readFile(filePath, "utf8"));
+    return {
+      body: Buffer.from(item.body, "base64"),
+      contentType: item.contentType,
+      createdAt: item.createdAt,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+async function diskCacheSet(key, value) {
+  await mkdir(DISK_CACHE_DIR, { recursive: true });
+  await writeFile(
+    cacheFilePath(key),
+    JSON.stringify({
+      contentType: value.contentType,
+      createdAt: Date.now(),
+      body: Buffer.from(value.body).toString("base64"),
+    }),
+  );
+}
+
 async function proxyFetch(targetUrl, response) {
-  const cached = cacheGet(targetUrl);
+  const cached = cacheGet(targetUrl) || (await diskCacheGet(targetUrl));
   if (cached) {
     send(response, 200, cached.body, {
       "Content-Type": cached.contentType,
@@ -55,6 +95,7 @@ async function proxyFetch(targetUrl, response) {
 
   if (upstream.ok) {
     cacheSet(targetUrl, { body, contentType });
+    await diskCacheSet(targetUrl, { body, contentType });
   }
 
   send(response, upstream.status, body, {
@@ -83,6 +124,10 @@ const server = http.createServer(async (request, response) => {
 
   try {
     const requestUrl = new URL(request.url, `http://${request.headers.host}`);
+    if (request.url.length > MAX_URL_LENGTH) {
+      send(response, 414, "URI too long");
+      return;
+    }
 
     if (requestUrl.pathname === "/api/health") {
       send(response, 200, JSON.stringify({ ok: true }), {

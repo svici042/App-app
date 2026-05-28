@@ -7,10 +7,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Marine Navigator">
     <title>Jūrinė Navigacija</title>
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="media/icons/icon-192.png">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 </head>
 <body>
     <div class="app-shell">
@@ -114,12 +114,14 @@
                 </div>
                 <div class="actions">
                     <button class="btn-strong" id="download-offline" type="button">Atsisiųsti zoną</button>
+                    <button class="btn-light" id="cancel-offline" type="button">Atšaukti</button>
                     <button class="btn-light" id="load-offline" type="button">Atkurti vaizdą</button>
                     <button class="btn-light" id="clear-offline" type="button">Išvalyti cache</button>
                     <button class="btn-light" id="install-app" type="button">Įdiegti app</button>
                 </div>
                 <div class="info-card">
                     <h3 id="offline-status-title">Statusas</h3>
+                    <p class="small-note" id="offline-estimate">Zona: --</p>
                     <p id="offline-status">Laukia</p>
                     <progress id="offline-progress" value="0" max="100"></progress>
                     <p class="small-note" id="pwa-status">PWA tikrinama...</p>
@@ -148,8 +150,6 @@
             </div>
         </section>
     </div>
-    <script src="vendor/leaflet/leaflet.js"></script>
-    <script src="vendor/leaflet-rotate/leaflet-rotate-src.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="/src/main.js"></script>
 </body>
 </html>
