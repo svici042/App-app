@@ -110,8 +110,41 @@ test("charts panel exposes provider health status", async ({ page }) => {
   await expect(page.locator("#depth-safety-note")).toHaveText(
     "Depth data is for reference only. Not for primary navigation.",
   );
+  await expect(page.locator("#primary-depth-source")).toHaveText(
+    "Primary depth source: EMODnet",
+  );
   await expect(page.locator("#provider-health-status")).toBeVisible();
   await expect(page.locator("#provider-health-list")).toBeVisible();
+});
+
+test("shows fallback bathymetry availability and quality warning", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Žemėlapiai" }).click();
+  await expect(page.locator("#fallback-depth-status")).toHaveText(
+    "Approximate seabed relief: available",
+  );
+  await expect(page.locator("#fallback-depth-quality")).toHaveText(
+    "Relief layer is low-resolution visual bathymetry, not safe depth data.",
+  );
+  await expect(
+    page.getByRole("button", { name: "Use approximate seabed relief" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Experimental 3D seabed" })).toBeDisabled();
+});
+
+test("fallback bathymetry is selected only after explicit user choice", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Žemėlapiai" }).click();
+  await expect(page.locator("#fallback-depth-status")).toHaveText(
+    "Approximate seabed relief: available",
+  );
+  await page.getByRole("button", { name: "Use approximate seabed relief" }).click();
+  await expect(page.locator("#fallback-depth-status")).toHaveText(
+    "Approximate seabed relief: available · selected",
+  );
+  await expect(page.getByRole("button", { name: "Experimental 3D seabed" })).toBeDisabled();
 });
 
 test("shows depth provider failure instead of silently hiding depth data", async ({ page }) => {
@@ -132,7 +165,12 @@ test("shows depth provider failure instead of silently hiding depth data", async
 
   await page.goto("/");
 
-  await expect(page.locator("#depth-status")).toHaveText("Depths unavailable");
+  await expect(page.locator("#depth-status")).toHaveText(
+    "No numeric depth data available here. Approximate seabed relief may still be available.",
+  );
+  await expect(page.locator("#primary-depth-source")).toHaveText(
+    "Primary depth source: EMODnet",
+  );
   await expect(page.locator("#depth-debug")).toContainText("Depth provider failed");
   await expect(page.locator("#depth-debug")).toContainText("Request: failed");
   await expect(page.locator("#depth-debug")).toContainText("Status: HTTP 503");

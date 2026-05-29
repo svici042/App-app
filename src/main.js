@@ -8,6 +8,7 @@ import "../vendor/leaflet/leaflet.js";
 import "../vendor/leaflet-rotate/leaflet-rotate-src.js";
 import {
   CACHE_NAME,
+  DEPTH_SOURCES,
   OFFLINE_AREAS_KEY,
   ROUTE_HISTORY_KEY,
   PROXY_BASE_URL,
@@ -56,7 +57,13 @@ let mobMarker = null;
 let activeBaseLayerKey = "Default";
 let offlineAbortController = null;
 let lastMenuTrigger = null;
-const DEPTH_PROVIDER_NAME = "EMODnet Bathymetry";
+const primaryDepthSource = DEPTH_SOURCES.primary;
+const fallbackDepthSource = DEPTH_SOURCES.fallback;
+const experimental3dSource = DEPTH_SOURCES.experimental3d;
+const fallbackDepthStatus = {
+  available: Boolean(fallbackDepthSource?.url && fallbackDepthSource?.layers?.relief),
+  enabled: false,
+};
 const depthLayerStatus = {
   loaded: false,
   failed: false,
@@ -172,6 +179,7 @@ function renderAllTexts() {
   setText("depths-title", t.depthsTitle);
   setText("depths-description", t.depthsDescription);
   setText("depth-safety-note", t.depthSafetyNote);
+  renderDepthSourceStatus();
   setText("provider-health-title", t.providerHealthTitle);
   setText("provider-health-status", t.providerHealthChecking);
   setText("boat-settings-title", t.boatSettingsTitle);
@@ -263,7 +271,7 @@ const baseLayers = {
 
 // LT: Realūs batimetrijos sluoksniai iš EMODnet ir GEBCO WMS servisų. / EN: Real bathymetry layers from EMODnet and GEBCO WMS services.
 const depthLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
-  layers: "emodnet:mean_multicolour",
+  layers: primaryDepthSource.layers.soundings,
   format: "image/png",
   transparent: true,
   pane: "depthPane",
@@ -271,7 +279,7 @@ const depthLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   attribution: "EMODnet Bathymetry",
 });
 const contourLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
-  layers: "emodnet:contours",
+  layers: primaryDepthSource.layers.contours,
   format: "image/png",
   transparent: true,
   pane: "contourPane",
@@ -287,13 +295,13 @@ const sonarLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   attribution: "EMODnet Bathymetry",
 });
 const reliefLayer = L.tileLayer.wms(WMS_SOURCES.gebco, {
-  layers: "GEBCO_LATEST",
+  layers: fallbackDepthSource.layers.relief,
   format: "image/png",
   transparent: true,
   version: "1.3.0",
   pane: "reliefPane",
   opacity: 0.46,
-  attribution: "GEBCO",
+  attribution: fallbackDepthSource.name,
   className: "relief-tile",
 });
 const trackLayer = L.layerGroup().addTo(map);
@@ -340,7 +348,7 @@ function getDepthStatusText() {
   }
 
   if (isDepthLayerHiddenAtCurrentZoom()) return t.depthStatusUnknownQuality;
-  if (depthLayerStatus.failed) return t.depthStatusUnavailable;
+  if (depthLayerStatus.failed) return t.noNumericDepthData;
   if (depthLayerStatus.loaded) return t.depthStatusOnline;
   return t.depthStatusUnknownQuality;
 }
@@ -384,13 +392,50 @@ function renderDepthStatus() {
   setText(
     "depth-debug",
     `${getDepthLayerDiagnosticMessage()} · ${TEXT[lang].depthDebug({
-      provider: DEPTH_PROVIDER_NAME,
+      provider: primaryDepthSource.providerName,
       center: getDepthCenterText(),
       zoom: map.getZoom(),
       request: getDepthRequestText(),
       status: depthLayerStatus.httpStatus,
     })}`,
   );
+}
+
+function renderDepthSourceStatus() {
+  const t = TEXT[lang] || TEXT.lt;
+  setText("primary-depth-source", t.primaryDepthSource(primaryDepthSource.name));
+  setText(
+    "fallback-depth-status",
+    fallbackDepthStatus.enabled
+      ? t.fallbackBathymetryEnabled
+      : fallbackDepthStatus.available
+      ? t.fallbackBathymetryAvailable
+      : t.fallbackBathymetryUnavailable,
+  );
+  setText("fallback-depth-quality", t.fallbackBathymetryQuality(fallbackDepthSource.quality));
+  setText("use-fallback-depth", t.useFallbackBathymetry);
+  setText("experimental-3d-toggle", t.experimental3dSeabed);
+  document.getElementById("experimental-3d-toggle")?.toggleAttribute(
+    "disabled",
+    !experimental3dSource?.url,
+  );
+  document
+    .getElementById("use-fallback-depth")
+    ?.toggleAttribute("disabled", !fallbackDepthStatus.available);
+}
+
+function useFallbackBathymetry() {
+  const t = TEXT[lang] || TEXT.lt;
+  if (!fallbackDepthStatus.available) {
+    setText("fallback-depth-status", t.fallbackBathymetryUnavailable);
+    return;
+  }
+
+  if (!map.hasLayer(reliefLayer)) {
+    reliefLayer.addTo(map);
+  }
+  fallbackDepthStatus.enabled = true;
+  setText("fallback-depth-status", t.fallbackBathymetryEnabled);
 }
 
 function getTileUrl(event) {
@@ -447,10 +492,21 @@ function reportDepthLayerLoadError(event) {
   layer.on("tileerror", reportDepthLayerLoadError);
 });
 
-[sonarLayer, reliefLayer].forEach((layer) => {
+reliefLayer.on("add", () => {
+  fallbackDepthStatus.enabled = true;
+  renderDepthSourceStatus();
+});
+reliefLayer.on("remove", () => {
+  fallbackDepthStatus.enabled = false;
+  renderDepthSourceStatus();
+});
+
+[
+  sonarLayer,
+  reliefLayer,
+].forEach((layer) => {
   layer.on("tileerror", reportLayerLoadError);
 });
-reliefLayer.addTo(map);
 depthLayer.addTo(map);
 contourLayer.addTo(map);
 sonarLayer.addTo(map);
@@ -1461,6 +1517,9 @@ function setupUI() {
     .getElementById("route-history")
     .addEventListener("change", loadRouteFromHistory);
   document.getElementById("mob-btn").addEventListener("click", markMobPoint);
+  document
+    .getElementById("use-fallback-depth")
+    .addEventListener("click", useFallbackBathymetry);
 
   document.querySelectorAll(".nav-tabs button").forEach((button) => {
     button.addEventListener("click", () => activateTab(button.dataset.tab));

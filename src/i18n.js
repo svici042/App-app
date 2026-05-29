@@ -12,10 +12,10 @@ export const TEXT = {
     baseDefault: "Pagrindinis",
     baseSatellite: "Satelitas",
     baseTerrain: "Reljefas",
-    overlayDepths: "Gyliai",
-    overlayContours: "Gylio kontūrai",
+    overlayDepths: "Depth soundings",
+    overlayContours: "Depth contours",
     overlaySonar: "Matavimų šaltiniai",
-    overlayRelief: "3D dugno reljefas",
+    overlayRelief: "Approximate seabed relief",
     closeMenu: "Uždaryti",
     gpsTitle: "Realaus laiko GPS",
     gpsStart: "Paleisti GPS",
@@ -66,9 +66,9 @@ export const TEXT = {
     chartsTitle: "Žemėlapio sluoksniai",
     chartsDescription:
       "Matomi realūs EMODnet gyliai, gylio kontūrai, matavimų šaltiniai ir GEBCO dugno reljefas.",
-    depthsTitle: "Gyliai",
+    depthsTitle: "Depth soundings",
     depthsDescription:
-      "Gyliai kraunami iš EMODnet Bathymetry WMS ir REST servisų.",
+      "Numeric depth data is loaded from EMODnet where coverage is available.",
     depthSafetyNote:
       "Depth data is for reference only. Not for primary navigation.",
     depthStatusChecking: "Depth quality unknown",
@@ -78,6 +78,8 @@ export const TEXT = {
     depthStatusUnknownQuality: "Depth quality unknown",
     depthOfflineUnavailableForArea:
       "Depth data not available offline for this area.",
+    noNumericDepthData:
+      "No numeric depth data available here. Approximate seabed relief may still be available.",
     depthLayerAvailableHere: "Depth layer available here",
     depthLayerUnavailableArea: "Depth layer not available for this area",
     depthProviderFailed: "Depth provider failed",
@@ -85,6 +87,14 @@ export const TEXT = {
     depthRequestPending: "pending",
     depthRequestSucceeded: "succeeded",
     depthRequestFailed: "failed",
+    primaryDepthSource: (source) => `Primary depth source: ${source}`,
+    fallbackBathymetryAvailable: "Approximate seabed relief: available",
+    fallbackBathymetryUnavailable: "Approximate seabed relief: unavailable",
+    fallbackBathymetryEnabled: "Approximate seabed relief: available · selected",
+    fallbackBathymetryQuality: () =>
+      "Relief layer is low-resolution visual bathymetry, not safe depth data.",
+    useFallbackBathymetry: "Use approximate seabed relief",
+    experimental3dSeabed: "Experimental 3D seabed",
     depthDebug: ({ provider, center, zoom, request, status }) =>
       `Provider: ${provider} · Center: ${center} · Zoom: ${zoom} · Request: ${request} · Status: ${status}`,
     providerHealthTitle: "Tiekėjų būsena",
@@ -165,10 +175,10 @@ export const TEXT = {
     baseDefault: "Default",
     baseSatellite: "Satellite",
     baseTerrain: "Terrain",
-    overlayDepths: "Depths",
+    overlayDepths: "Depth soundings",
     overlayContours: "Depth contours",
     overlaySonar: "Survey sources",
-    overlayRelief: "3D seabed relief",
+    overlayRelief: "Approximate seabed relief",
     closeMenu: "Close",
     gpsTitle: "Real-time GPS",
     gpsStart: "Start GPS",
@@ -218,9 +228,9 @@ export const TEXT = {
     chartsTitle: "Map layers",
     chartsDescription:
       "Real EMODnet depths, depth contours, survey sources, and GEBCO seabed relief are visible on the map.",
-    depthsTitle: "Depths",
+    depthsTitle: "Depth soundings",
     depthsDescription:
-      "Depths are loaded from EMODnet Bathymetry WMS and REST services.",
+      "Numeric depth data is loaded from EMODnet where coverage is available.",
     depthSafetyNote:
       "Depth data is for reference only. Not for primary navigation.",
     depthStatusChecking: "Depth quality unknown",
@@ -230,6 +240,8 @@ export const TEXT = {
     depthStatusUnknownQuality: "Depth quality unknown",
     depthOfflineUnavailableForArea:
       "Depth data not available offline for this area.",
+    noNumericDepthData:
+      "No numeric depth data available here. Approximate seabed relief may still be available.",
     depthLayerAvailableHere: "Depth layer available here",
     depthLayerUnavailableArea: "Depth layer not available for this area",
     depthProviderFailed: "Depth provider failed",
@@ -237,6 +249,14 @@ export const TEXT = {
     depthRequestPending: "pending",
     depthRequestSucceeded: "succeeded",
     depthRequestFailed: "failed",
+    primaryDepthSource: (source) => `Primary depth source: ${source}`,
+    fallbackBathymetryAvailable: "Approximate seabed relief: available",
+    fallbackBathymetryUnavailable: "Approximate seabed relief: unavailable",
+    fallbackBathymetryEnabled: "Approximate seabed relief: available · selected",
+    fallbackBathymetryQuality: () =>
+      "Relief layer is low-resolution visual bathymetry, not safe depth data.",
+    useFallbackBathymetry: "Use approximate seabed relief",
+    experimental3dSeabed: "Experimental 3D seabed",
     depthDebug: ({ provider, center, zoom, request, status }) =>
       `Provider: ${provider} · Center: ${center} · Zoom: ${zoom} · Request: ${request} · Status: ${status}`,
     providerHealthTitle: "Provider status",
