@@ -81,7 +81,7 @@
                 <div class="info-card">
                     <h3 id="depths-title">Gyliai</h3>
                     <p id="depths-description">Gyliai kraunami iš EMODnet Bathymetry WMS ir REST servisų.</p>
-                    <p class="small-note safety-note" id="depth-safety-note">Gylio sluoksniai yra informaciniai ir nėra sertifikuoti saugiai navigacijai.</p>
+                    <p class="small-note safety-note" id="depth-safety-note">Depth data is for reference only. Not for primary navigation.</p>
                 </div>
                 <div class="info-card provider-health-card">
                     <h3 id="provider-health-title">Tiekėjų būsena</h3>
@@ -149,7 +149,8 @@
                 <div id="map"></div>
                 <div class="map-hud" aria-live="polite">
                     <button class="btn-light hud-button" type="button" id="orientation-toggle">Šiaurė ↑</button>
-                    <div class="hud-status depth-status" id="depth-status">Gyliai: tikrinama...</div>
+                    <div class="hud-status depth-status" id="depth-status">Depth quality unknown</div>
+                    <div class="hud-status depth-debug" id="depth-debug">Provider: EMODnet Bathymetry · Center: -- · Zoom: -- · Request: pending · Status: --</div>
                     <div class="hud-status" id="map-footer">Palieskite žemėlapį realiam gyliui.</div>
                 </div>
                 <div class="depth-legend" aria-label="Gylio legenda">

@@ -214,9 +214,10 @@ button {
     left: 0.75rem;
     top: 0.75rem;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
-    max-width: min(560px, calc(100% - 5rem));
+    max-width: min(760px, calc(100% - 5rem));
     padding: 0.45rem;
 }
 
@@ -230,6 +231,10 @@ button {
 .depth-status {
     color: var(--text);
     font-weight: 700;
+}
+
+.depth-debug {
+    flex-basis: 100%;
 }
 
 .safety-note {

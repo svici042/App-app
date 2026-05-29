@@ -56,9 +56,13 @@ let mobMarker = null;
 let activeBaseLayerKey = "Default";
 let offlineAbortController = null;
 let lastMenuTrigger = null;
+const DEPTH_PROVIDER_NAME = "EMODnet Bathymetry";
 const depthLayerStatus = {
   loaded: false,
   failed: false,
+  requestState: "pending",
+  httpStatus: "--",
+  lastUrl: "",
 };
 
 // LT: Matavimo režimas turi savo žymeklius ir liniją, kad nesimaišytų su maršrutu. / EN: Measurement mode has its own markers and line so it does not mix with the route.
@@ -335,25 +339,107 @@ function getDepthStatusText() {
       : t.depthStatusUnknownQuality;
   }
 
+  if (isDepthLayerHiddenAtCurrentZoom()) return t.depthStatusUnknownQuality;
   if (depthLayerStatus.failed) return t.depthStatusUnavailable;
   if (depthLayerStatus.loaded) return t.depthStatusOnline;
   return t.depthStatusUnknownQuality;
 }
 
+function isDepthLayerHiddenAtCurrentZoom() {
+  const zoom = map.getZoom();
+  const minZoom = depthLayer.options.minZoom;
+  const maxZoom = depthLayer.options.maxZoom;
+  return (
+    (Number.isFinite(minZoom) && zoom < minZoom) ||
+    (Number.isFinite(maxZoom) && zoom > maxZoom)
+  );
+}
+
+function getDepthLayerDiagnosticMessage() {
+  const t = TEXT[lang] || TEXT.lt;
+
+  if (isDepthLayerHiddenAtCurrentZoom()) return t.depthLayerHiddenAtZoom;
+  if (depthLayerStatus.failed) return t.depthProviderFailed;
+  if (!navigator.onLine && !getOfflineAreaForCurrentView()) {
+    return t.depthLayerUnavailableArea;
+  }
+  if (depthLayerStatus.loaded) return t.depthLayerAvailableHere;
+  return t.depthLayerHiddenAtZoom;
+}
+
+function getDepthRequestText() {
+  const t = TEXT[lang] || TEXT.lt;
+  if (depthLayerStatus.requestState === "succeeded") return t.depthRequestSucceeded;
+  if (depthLayerStatus.requestState === "failed") return t.depthRequestFailed;
+  return t.depthRequestPending;
+}
+
+function getDepthCenterText() {
+  const center = map.getCenter();
+  return `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
+}
+
 function renderDepthStatus() {
   setText("depth-status", getDepthStatusText());
+  setText(
+    "depth-debug",
+    `${getDepthLayerDiagnosticMessage()} · ${TEXT[lang].depthDebug({
+      provider: DEPTH_PROVIDER_NAME,
+      center: getDepthCenterText(),
+      zoom: map.getZoom(),
+      request: getDepthRequestText(),
+      status: depthLayerStatus.httpStatus,
+    })}`,
+  );
 }
 
-function reportDepthLayerLoaded() {
+function getTileUrl(event) {
+  return event?.tile?.currentSrc || event?.tile?.src || "";
+}
+
+function logDepthTileUrl(url) {
+  if (import.meta.env.DEV && url) {
+    console.debug("Depth WMS tile URL:", url);
+  }
+}
+
+async function resolveDepthHttpStatus(url) {
+  if (!url) return "status unavailable";
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    return `HTTP ${response.status}`;
+  } catch (error) {
+    return "status unavailable";
+  }
+}
+
+function reportDepthLayerLoaded(event) {
+  const url = getTileUrl(event);
+  logDepthTileUrl(url);
   depthLayerStatus.loaded = true;
   depthLayerStatus.failed = false;
+  depthLayerStatus.requestState = "succeeded";
+  depthLayerStatus.httpStatus = "OK";
+  depthLayerStatus.lastUrl = url;
   renderDepthStatus();
 }
 
-function reportDepthLayerLoadError() {
+function reportDepthLayerLoadError(event) {
+  const url = getTileUrl(event);
+  logDepthTileUrl(url);
   depthLayerStatus.failed = true;
+  depthLayerStatus.requestState = "failed";
+  depthLayerStatus.httpStatus = event?.error?.status
+    ? `HTTP ${event.error.status}`
+    : "status unavailable";
+  depthLayerStatus.lastUrl = url;
   reportLayerLoadError();
   renderDepthStatus();
+  resolveDepthHttpStatus(url).then((status) => {
+    if (depthLayerStatus.lastUrl !== url) return;
+    depthLayerStatus.httpStatus = status;
+    renderDepthStatus();
+  });
 }
 
 [depthLayer, contourLayer].forEach((layer) => {

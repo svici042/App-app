@@ -5,7 +5,10 @@ test("loads the map shell and PWA metadata", async ({ page }) => {
 
   await expect(page.locator("h1")).toHaveText("Marine Navigator");
   await expect(page.locator("#map")).toBeVisible();
-  await expect(page.locator("#depth-status")).toBeVisible();
+  await expect(page.locator("#depth-status")).toHaveText(/Depth/);
+  await expect(page.locator("#depth-debug")).toContainText("Provider: EMODnet Bathymetry");
+  await expect(page.locator("#depth-debug")).toContainText("Center:");
+  await expect(page.locator("#depth-debug")).toContainText("Zoom:");
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
     "href",
     "manifest.json",
@@ -104,9 +107,40 @@ test("charts panel exposes provider health status", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "Žemėlapiai" }).click();
-  await expect(page.locator("#depth-safety-note")).toContainText("nėra sertifikuoti");
+  await expect(page.locator("#depth-safety-note")).toHaveText(
+    "Depth data is for reference only. Not for primary navigation.",
+  );
   await expect(page.locator("#provider-health-status")).toBeVisible();
   await expect(page.locator("#provider-health-list")).toBeVisible();
+});
+
+test("shows depth provider failure instead of silently hiding depth data", async ({ page }) => {
+  const debugMessages = [];
+  page.on("console", (message) => {
+    if (message.type() === "debug") debugMessages.push(message.text());
+  });
+  await page.route("https://ows.emodnet-bathymetry.eu/wms**", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "image/png",
+      body: "",
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
+    }),
+  );
+
+  await page.goto("/");
+
+  await expect(page.locator("#depth-status")).toHaveText("Depths unavailable");
+  await expect(page.locator("#depth-debug")).toContainText("Depth provider failed");
+  await expect(page.locator("#depth-debug")).toContainText("Request: failed");
+  await expect(page.locator("#depth-debug")).toContainText("Status: HTTP 503");
+  await expect(page.locator("#map-footer")).toContainText(
+    "Nepavyko užkrauti vieno iš batimetrijos sluoksnių",
+  );
+  await expect.poll(() => debugMessages.some((text) => text.includes("Depth WMS tile URL:")))
+    .toBe(true);
 });
 
 test("shows depth offline gap outside saved areas", async ({ page }) => {
