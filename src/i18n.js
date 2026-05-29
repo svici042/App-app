@@ -69,6 +69,15 @@ export const TEXT = {
     depthsTitle: "Gyliai",
     depthsDescription:
       "Gyliai kraunami iš EMODnet Bathymetry WMS ir REST servisų.",
+    depthSafetyNote:
+      "Gylio sluoksniai yra informaciniai ir nėra sertifikuoti saugiai navigacijai.",
+    depthStatusChecking: "Gyliai: tikrinama...",
+    depthStatusOnline: "Gyliai: pasiekiami internetu",
+    depthStatusOffline: "Gyliai: pasiekiami offline",
+    depthStatusUnavailable: "Gyliai: nepasiekiami",
+    depthStatusUnknownQuality: "Gyliai: pasenę arba nežinomos kokybės",
+    depthOfflineUnavailableForArea:
+      "Depth data not available offline for this area.",
     providerHealthTitle: "Tiekėjų būsena",
     providerHealthChecking: "Tikrinama...",
     providerHealthOk: "Visi žemėlapio tiekėjai pasiekiami.",
@@ -203,6 +212,15 @@ export const TEXT = {
     depthsTitle: "Depths",
     depthsDescription:
       "Depths are loaded from EMODnet Bathymetry WMS and REST services.",
+    depthSafetyNote:
+      "Depth layers are advisory and are not certified safe navigation data.",
+    depthStatusChecking: "Depths: checking...",
+    depthStatusOnline: "Depths: available online",
+    depthStatusOffline: "Depths: available offline",
+    depthStatusUnavailable: "Depths: unavailable",
+    depthStatusUnknownQuality: "Depths: stale/unknown quality",
+    depthOfflineUnavailableForArea:
+      "Depth data not available offline for this area.",
     providerHealthTitle: "Provider status",
     providerHealthChecking: "Checking...",
     providerHealthOk: "All map providers are reachable.",

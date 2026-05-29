@@ -56,6 +56,10 @@ let mobMarker = null;
 let activeBaseLayerKey = "Default";
 let offlineAbortController = null;
 let lastMenuTrigger = null;
+const depthLayerStatus = {
+  loaded: false,
+  failed: false,
+};
 
 // LT: Matavimo režimas turi savo žymeklius ir liniją, kad nesimaišytų su maršrutu. / EN: Measurement mode has its own markers and line so it does not mix with the route.
 const measureState = {
@@ -163,6 +167,7 @@ function renderAllTexts() {
   setText("charts-description", t.chartsDescription);
   setText("depths-title", t.depthsTitle);
   setText("depths-description", t.depthsDescription);
+  setText("depth-safety-note", t.depthSafetyNote);
   setText("provider-health-title", t.providerHealthTitle);
   setText("provider-health-status", t.providerHealthChecking);
   setText("boat-settings-title", t.boatSettingsTitle);
@@ -208,6 +213,7 @@ function renderAllTexts() {
   renderOfflineAreas();
   renderPwaStatus();
   renderBoatPreview();
+  renderDepthStatus();
 
   const gpsStatus = document.getElementById("gps-status");
   if (gpsStatus) {
@@ -297,7 +303,65 @@ function reportLayerLoadError() {
   setText("map-footer", TEXT[lang].layerLoadError);
 }
 
-[depthLayer, contourLayer, sonarLayer, reliefLayer].forEach((layer) => {
+function parseOfflineBounds(boundsValue) {
+  if (typeof boundsValue !== "string") return null;
+  const parts = boundsValue.split(",").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) return null;
+  const [west, south, east, north] = parts;
+  return { west, south, east, north };
+}
+
+function getOfflineAreaForCurrentView() {
+  const center = map.getCenter();
+  return readOfflineAreas().find((area) => {
+    const bounds = parseOfflineBounds(area.bounds);
+    if (!bounds) return false;
+    return (
+      center.lat >= bounds.south &&
+      center.lat <= bounds.north &&
+      center.lng >= bounds.west &&
+      center.lng <= bounds.east
+    );
+  });
+}
+
+function getDepthStatusText() {
+  const t = TEXT[lang] || TEXT.lt;
+
+  if (!navigator.onLine) {
+    if (!getOfflineAreaForCurrentView()) return t.depthOfflineUnavailableForArea;
+    return depthLayerStatus.loaded
+      ? t.depthStatusOffline
+      : t.depthStatusUnknownQuality;
+  }
+
+  if (depthLayerStatus.failed) return t.depthStatusUnavailable;
+  if (depthLayerStatus.loaded) return t.depthStatusOnline;
+  return t.depthStatusUnknownQuality;
+}
+
+function renderDepthStatus() {
+  setText("depth-status", getDepthStatusText());
+}
+
+function reportDepthLayerLoaded() {
+  depthLayerStatus.loaded = true;
+  depthLayerStatus.failed = false;
+  renderDepthStatus();
+}
+
+function reportDepthLayerLoadError() {
+  depthLayerStatus.failed = true;
+  reportLayerLoadError();
+  renderDepthStatus();
+}
+
+[depthLayer, contourLayer].forEach((layer) => {
+  layer.on("tileload", reportDepthLayerLoaded);
+  layer.on("tileerror", reportDepthLayerLoadError);
+});
+
+[sonarLayer, reliefLayer].forEach((layer) => {
   layer.on("tileerror", reportLayerLoadError);
 });
 reliefLayer.addTo(map);
@@ -336,6 +400,11 @@ map.on("baselayerchange", (event) => {
   const activeEntry = layerEntries.find(([, layer]) => layer === event.layer);
   if (activeEntry) activeBaseLayerKey = activeEntry[0];
   renderOfflineEstimate();
+});
+
+map.on("moveend", () => {
+  renderOfflineEstimate();
+  renderDepthStatus();
 });
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -1121,6 +1190,7 @@ async function downloadOfflineArea() {
   saveOfflineAreas(areas.slice(0, 20));
   localStorage.setItem("marine-navigator-offline", JSON.stringify(offlineData));
   renderOfflineAreas();
+  renderDepthStatus();
   const select = document.getElementById("offline-area-list");
   if (select) select.value = offlineData.id;
   document.getElementById("offline-status").textContent =
@@ -1143,6 +1213,7 @@ function loadOfflineArea() {
   }
   map.setView([data.center.lat, data.center.lng], data.zoom);
   document.getElementById("offline-status").textContent = TEXT[lang].offlineLoaded;
+  renderDepthStatus();
 }
 
 async function deleteSelectedOfflineArea() {
@@ -1164,6 +1235,7 @@ async function deleteSelectedOfflineArea() {
     localStorage.removeItem("marine-navigator-offline");
   }
   renderOfflineAreas();
+  renderDepthStatus();
   setText("offline-status", TEXT[lang].offlineDeleted);
 }
 
@@ -1176,6 +1248,7 @@ async function clearOfflineCache() {
   localStorage.removeItem("marine-navigator-offline");
   localStorage.removeItem(OFFLINE_AREAS_KEY);
   renderOfflineAreas();
+  renderDepthStatus();
   setText("offline-status", TEXT[lang].pwaCacheCleared);
   setText("pwa-status", TEXT[lang].pwaCacheCleared);
 }
@@ -1406,6 +1479,7 @@ function setupUI() {
   renderAllTexts();
   setBoatSettingsFromUI();
   renderOfflineEstimate();
+  renderDepthStatus();
 }
 
 function init() {
@@ -1414,6 +1488,7 @@ function init() {
   document.getElementById("gps-status").textContent = TEXT[lang].gpsStatusWaiting;
   applyMapOrientation();
   renderProviderHealth();
+  renderDepthStatus();
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
@@ -1433,5 +1508,8 @@ window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
   renderPwaStatus();
 });
+
+window.addEventListener("online", renderDepthStatus);
+window.addEventListener("offline", renderDepthStatus);
 
 window.addEventListener("load", init);

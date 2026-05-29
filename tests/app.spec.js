@@ -5,6 +5,7 @@ test("loads the map shell and PWA metadata", async ({ page }) => {
 
   await expect(page.locator("h1")).toHaveText("Marine Navigator");
   await expect(page.locator("#map")).toBeVisible();
+  await expect(page.locator("#depth-status")).toBeVisible();
   await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
     "href",
     "manifest.json",
@@ -103,6 +104,24 @@ test("charts panel exposes provider health status", async ({ page }) => {
   await page.goto("/");
 
   await page.getByRole("button", { name: "Žemėlapiai" }).click();
+  await expect(page.locator("#depth-safety-note")).toContainText("nėra sertifikuoti");
   await expect(page.locator("#provider-health-status")).toBeVisible();
   await expect(page.locator("#provider-health-list")).toBeVisible();
+});
+
+test("shows depth offline gap outside saved areas", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () => false,
+    });
+    localStorage.removeItem("marine-navigator-offline-areas");
+    localStorage.removeItem("marine-navigator-offline");
+  });
+
+  await page.goto("/");
+
+  await expect(page.locator("#depth-status")).toHaveText(
+    "Depth data not available offline for this area.",
+  );
 });

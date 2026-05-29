@@ -9,6 +9,7 @@
     --text: #f5f9ff;
     --muted: #9fb2c5;
     --danger: #ff6b72;
+    --warning: #fbbf24;
     --success: #2dd4a5;
     --shadow: 0 18px 48px rgba(3, 17, 38, 0.36);
     --border: rgba(255,255,255,0.1);
@@ -39,6 +40,7 @@ body {
     --accent-2: #008a9f;
     --text: #102033;
     --muted: #52657a;
+    --warning: #b45309;
     --shadow: 0 18px 44px rgba(72, 111, 145, 0.18);
     --border: rgba(13, 52, 81, 0.12);
     --leaflet-popup-bg: #ffffff;
@@ -223,6 +225,16 @@ button {
     font-size: 0.82rem;
     line-height: 1.25;
     padding-right: 0.35rem;
+}
+
+.depth-status {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.safety-note {
+    border-left: 3px solid var(--warning);
+    padding-left: 0.65rem;
 }
 
 .hud-button {
