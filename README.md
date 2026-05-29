@@ -38,7 +38,8 @@ The app is intentionally small and mostly client-side:
 - **Heading-up**: map bearing follows the best available heading. Preference order is GPS heading/course, inferred movement bearing, then latest route segment bearing.
 - **Follow mode**: map follows the current GPS position and also applies heading-up behavior when heading/course data is available.
 
-The app keeps WMS bathymetry panes synchronized with the rotated Leaflet tile pane. WMS redraws are debounced after zoom, pan, and rotation events to reduce Android flicker.
+The application attempts to keep WMS bathymetry overlays synchronized with map rotation.
+Additional Android-specific validation is still in progress. WMS redraws are debounced after zoom, pan, and rotation events to reduce Android flicker.
 
 ## Map Providers
 
@@ -58,7 +59,9 @@ Configured depth-related providers:
 - **GEBCO relief**: optional approximate visual seabed relief only. It is not numeric depth soundings.
 - **Experimental 3D seabed**: not implemented and hidden/disabled until a real renderer exists.
 
-Continuous depth visibility defaults to EMODnet contours where provider tiles render. Numeric depth is requested by tap/click through `/api/depth`, which proxies EMODnet REST depth samples.
+Bathymetry visualization currently depends on provider availability.
+Numeric depth queries are available through tap/click.
+Contour visualization is under active development and may not be available in all areas. Numeric depth is requested by tap/click through `/api/depth`, which proxies EMODnet REST depth samples.
 
 ## Offline Support
 
@@ -175,6 +178,34 @@ Endpoints:
 - GEBCO relief is visual-only and must not be treated as numeric soundings.
 - Offline base-map downloads do not guarantee offline depth coverage.
 - Always verify navigation decisions with official charts and appropriate onboard instruments.
+
+## Roadmap
+
+## Planned Features
+
+- Native Android GPS improvements
+- Worldwide bathymetry source evaluation
+- Nautical safety layers
+- Route library and route editing
+- Offline coverage validation
+- ENC adapter architecture
+- Native release builds
+
+## Platform Status
+
+### Web
+- Development supported
+- Offline supported
+- Browser GPS depends on HTTPS permissions
+
+### Android
+- Active development
+- Capacitor integration available
+- Native GPS support in progress
+
+### iOS
+- Project generated
+- Release pipeline not finalized
 
 ## LovLaus Copyright
 
