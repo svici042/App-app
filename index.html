@@ -13,10 +13,16 @@
     <link rel="apple-touch-icon" href="media/icons/icon-192.png">
 </head>
 <body>
+    <button class="floating-menu-button" type="button" id="open-sidebar" aria-label="Open menu" aria-controls="app-sidebar" aria-expanded="true">☰</button>
+    <button class="sidebar-backdrop" type="button" id="sidebar-backdrop" aria-label="Close menu"></button>
     <div class="app-shell">
         <!-- LT: Kairysis valdymo blokas: kalba, tema ir meniu mygtukai. / EN: Left control area: language, theme, and menu buttons. -->
-        <section class="sidebar">
+        <section class="sidebar" id="app-sidebar" aria-label="Application menu">
             <article class="card header-card">
+                <div class="sidebar-bar">
+                    <span class="sidebar-title">Menu</span>
+                    <button class="icon-btn sidebar-collapse-btn" type="button" id="collapse-sidebar" aria-label="Collapse menu" aria-controls="app-sidebar" aria-expanded="true">‹</button>
+                </div>
                 <div>
                     <h1>Marine Navigator</h1>
                     <p id="app-description">Interaktyvi jūrinės navigacijos programa su GPS, realiais batimetrijos sluoksniais ir maršrutų planavimu.</p>
@@ -88,7 +94,7 @@
                     <p class="small-note" id="fallback-depth-status">Approximate seabed relief: unavailable</p>
                     <p class="small-note" id="fallback-depth-quality">Relief layer is low-resolution visual bathymetry, not safe depth data.</p>
                     <button class="btn-light" id="use-fallback-depth" type="button">Use approximate seabed relief</button>
-                    <button class="btn-light" id="experimental-3d-toggle" type="button" disabled>Experimental 3D seabed</button>
+                    <button class="btn-light" id="experimental-3d-toggle" type="button" disabled hidden>Experimental 3D seabed</button>
                 </div>
                 <div class="info-card provider-health-card">
                     <h3 id="provider-health-title">Tiekėjų būsena</h3>
@@ -163,16 +169,26 @@
                 <div id="map"></div>
                 <div class="map-hud" aria-live="polite">
                     <button class="btn-light hud-button" type="button" id="orientation-toggle">Šiaurė ↑</button>
-                    <div class="hud-status depth-status" id="depth-status">Depth quality unknown</div>
-                    <div class="hud-status depth-debug" id="depth-debug">Provider: EMODnet Bathymetry · Center: -- · Zoom: -- · Request: pending · Status: --</div>
-                    <div class="hud-status" id="map-footer">Palieskite žemėlapį realiam gyliui.</div>
+                    <button class="btn-light hud-button" type="button" id="heading-toggle">Heading ↑</button>
+                    <button class="btn-light hud-button" type="button" id="follow-toggle">Follow</button>
+                    <button class="btn-light hud-button depth-panel-toggle" type="button" id="toggle-depth-panel" aria-label="Collapse depth status" aria-controls="depth-panel" aria-expanded="true">−</button>
+                    <button class="depth-chip" type="button" id="depth-chip" aria-label="Open depth status" aria-controls="depth-panel" aria-expanded="false">Depths unavailable</button>
+                    <div class="depth-panel" id="depth-panel">
+                        <div class="hud-status depth-status" id="depth-status">Depth quality unknown</div>
+                        <div class="hud-status depth-debug" id="depth-debug">Provider: EMODnet Bathymetry · Center: -- · Zoom: -- · Request: pending · Status: --</div>
+                        <div class="hud-status" id="map-footer">Palieskite žemėlapį realiam gyliui.</div>
+                    </div>
                 </div>
                 <div class="depth-legend" aria-label="Gylio legenda">
-                    <span id="legend-title">Gyliai</span>
-                    <div class="legend-ramp"></div>
-                    <div class="legend-labels">
-                        <span>0 m</span>
-                        <span>-5000 m</span>
+                    <button class="legend-toggle" type="button" id="toggle-depth-legend" aria-label="Open depth legend" aria-controls="depth-legend-content" aria-expanded="false">
+                        <span id="legend-title">Gyliai</span>
+                    </button>
+                    <div class="legend-content" id="depth-legend-content">
+                        <div class="legend-ramp"></div>
+                        <div class="legend-labels">
+                            <span>0 m</span>
+                            <span>-5000 m</span>
+                        </div>
                     </div>
                 </div>
             </div>

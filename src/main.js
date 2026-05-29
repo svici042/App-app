@@ -58,6 +58,14 @@ let mobMarker = null;
 let activeBaseLayerKey = "Default";
 let offlineAbortController = null;
 let lastMenuTrigger = null;
+let sidebarCollapsed = false;
+let depthPanelCollapsed = true;
+let depthLegendCollapsed = true;
+let wmsRedrawTimer = null;
+let mapGestureActive = false;
+let lastMapGestureEndedAt = 0;
+let depthQuerySequence = 0;
+const mobileLayoutQuery = window.matchMedia?.("(max-width: 1024px)");
 const primaryDepthSource = DEPTH_SOURCES.primary;
 const fallbackDepthSource = DEPTH_SOURCES.fallback;
 const experimental3dSource = DEPTH_SOURCES.experimental3d;
@@ -66,6 +74,13 @@ const fallbackDepthStatus = {
   enabled: false,
 };
 const depthLayerStatus = {
+  loaded: false,
+  failed: false,
+  requestState: "pending",
+  httpStatus: "--",
+  lastUrl: "",
+};
+const contourLayerStatus = {
   loaded: false,
   failed: false,
   requestState: "pending",
@@ -90,7 +105,10 @@ if (typeof window !== "undefined" && window.localStorage) {
 }
 
 theme = theme === "light" ? "light" : "dark";
-orientationMode = orientationMode === "route" ? "route" : "north";
+if (orientationMode === "route") orientationMode = "heading";
+orientationMode = ["north", "heading", "follow"].includes(orientationMode)
+  ? orientationMode
+  : "north";
 if (typeof document !== "undefined") {
   document.documentElement.dataset.theme = theme;
   document.documentElement.lang = lang;
@@ -158,6 +176,121 @@ function renderTheme() {
   setText("theme-toggle", theme === "dark" ? TEXT[lang].themeLight : TEXT[lang].themeDark);
 }
 
+function isMobileLayout() {
+  return Boolean(mobileLayoutQuery?.matches);
+}
+
+function invalidateMapAfterLayoutChange() {
+  window.setTimeout(() => map.invalidateSize(), 260);
+}
+
+function setSidebarCollapsed(collapsed) {
+  const sidebar = document.getElementById("app-sidebar");
+  const openButton = document.getElementById("open-sidebar");
+  const collapseButton = document.getElementById("collapse-sidebar");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  const t = TEXT[lang] || TEXT.lt;
+
+  sidebarCollapsed = collapsed;
+  document.body.classList.toggle("sidebar-collapsed", sidebarCollapsed);
+  document.body.classList.toggle(
+    "sidebar-drawer-open",
+    isMobileLayout() && !sidebarCollapsed,
+  );
+
+  if (sidebar) {
+    const hideFromKeyboard = sidebarCollapsed;
+    sidebar.toggleAttribute("inert", hideFromKeyboard);
+    sidebar.setAttribute("aria-hidden", String(hideFromKeyboard));
+  }
+
+  if (openButton) {
+    openButton.setAttribute("aria-label", t.openSidebar);
+    openButton.setAttribute("aria-expanded", String(!sidebarCollapsed));
+  }
+
+  if (collapseButton) {
+    collapseButton.setAttribute(
+      "aria-label",
+      sidebarCollapsed ? t.expandSidebar : t.collapseSidebar,
+    );
+    collapseButton.setAttribute("aria-expanded", String(!sidebarCollapsed));
+  }
+
+  if (backdrop) {
+    backdrop.setAttribute("aria-label", t.closeSidebar);
+  }
+
+  if (sidebarCollapsed && sidebar?.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+
+  invalidateMapAfterLayoutChange();
+}
+
+function openSidebar() {
+  setSidebarCollapsed(false);
+}
+
+function collapseSidebar() {
+  closeMenu();
+  setSidebarCollapsed(true);
+}
+
+function renderResponsiveSidebarState() {
+  setSidebarCollapsed(isMobileLayout());
+}
+
+function setDepthPanelCollapsed(collapsed) {
+  const toggleButton = document.getElementById("toggle-depth-panel");
+  const chip = document.getElementById("depth-chip");
+  const t = TEXT[lang] || TEXT.lt;
+
+  depthPanelCollapsed = collapsed;
+  document.body.classList.toggle("depth-panel-collapsed", depthPanelCollapsed);
+
+  if (toggleButton) {
+    toggleButton.textContent = depthPanelCollapsed ? "+" : "−";
+    toggleButton.setAttribute(
+      "aria-label",
+      depthPanelCollapsed ? t.expandDepthStatus : t.collapseDepthStatus,
+    );
+    toggleButton.setAttribute("aria-expanded", String(!depthPanelCollapsed));
+  }
+
+  if (chip) {
+    chip.setAttribute(
+      "aria-label",
+      depthPanelCollapsed ? t.expandDepthStatus : t.collapseDepthStatus,
+    );
+    chip.setAttribute("aria-expanded", String(!depthPanelCollapsed));
+  }
+}
+
+function toggleDepthPanel() {
+  setDepthPanelCollapsed(!depthPanelCollapsed);
+}
+
+function setDepthLegendCollapsed(collapsed) {
+  const toggleButton = document.getElementById("toggle-depth-legend");
+  const t = TEXT[lang] || TEXT.lt;
+
+  depthLegendCollapsed = collapsed;
+  document.body.classList.toggle("depth-legend-collapsed", depthLegendCollapsed);
+
+  if (toggleButton) {
+    toggleButton.setAttribute(
+      "aria-label",
+      depthLegendCollapsed ? t.openDepthLegend : t.closeDepthLegend,
+    );
+    toggleButton.setAttribute("aria-expanded", String(!depthLegendCollapsed));
+  }
+}
+
+function toggleDepthLegend() {
+  setDepthLegendCollapsed(!depthLegendCollapsed);
+}
+
 // LT: Perrašo visus matomus tekstus pagal pasirinktą kalbą. / EN: Rewrites all visible text based on the selected language.
 function renderAllTexts() {
   const t = TEXT[lang];
@@ -212,6 +345,9 @@ function renderAllTexts() {
   setText("legend-title", t.legendTitle);
   setText("close-menu", "×");
   document.getElementById("close-menu")?.setAttribute("aria-label", t.closeMenu);
+  setSidebarCollapsed(sidebarCollapsed);
+  setDepthPanelCollapsed(depthPanelCollapsed);
+  setDepthLegendCollapsed(depthLegendCollapsed);
 
   if (navButtons[0]) navButtons[0].textContent = t.navNavigation;
   if (navButtons[1]) navButtons[1].textContent = t.navCharts;
@@ -260,6 +396,20 @@ const boatSettings = {
 // LT: Pagrindinis Leaflet žemėlapis. / EN: Main Leaflet map.
 const map = createMap(L, "map");
 createMapPanes(map);
+if (typeof window !== "undefined") {
+  window.__marineNavigator = {
+    get map() {
+      return map;
+    },
+    get orientationMode() {
+      return orientationMode;
+    },
+    get currentPosition() {
+      return currentPosition;
+    },
+    layers: {},
+  };
+}
 
 // LT: Baziniai žemėlapio sluoksniai, kuriuos galima pasirinkti dešinėje valdiklyje. / EN: Base map layers selectable from the control on the right.
 const baseLayers = {
@@ -279,8 +429,16 @@ const depthLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: primaryDepthSource.layers.soundings,
   format: "image/png",
   transparent: true,
+  version: "1.1.1",
+  crs: L.CRS.EPSG3857,
   pane: "depthPane",
   opacity: 0.86,
+  tileSize: 256,
+  noWrap: true,
+  updateWhenZooming: false,
+  updateWhenIdle: true,
+  keepBuffer: 1,
+  zIndex: 420,
   attribution: PROVIDERS.emodnetBathymetry.attribution,
   className: "depth-tile",
 });
@@ -288,8 +446,16 @@ const contourLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: primaryDepthSource.layers.contours,
   format: "image/png",
   transparent: true,
+  version: "1.1.1",
+  crs: L.CRS.EPSG3857,
   pane: "contourPane",
   opacity: 1,
+  tileSize: 256,
+  noWrap: true,
+  updateWhenZooming: false,
+  updateWhenIdle: true,
+  keepBuffer: 1,
+  zIndex: 430,
   attribution: PROVIDERS.emodnetBathymetry.attribution,
   className: "contour-tile",
 });
@@ -297,8 +463,15 @@ const sonarLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: "emodnet:source_references",
   format: "image/png",
   transparent: true,
+  version: "1.1.1",
+  crs: L.CRS.EPSG3857,
   pane: "sonarPane",
   opacity: 0.72,
+  tileSize: 256,
+  noWrap: true,
+  updateWhenZooming: false,
+  updateWhenIdle: true,
+  keepBuffer: 1,
   attribution: PROVIDERS.emodnetBathymetry.attribution,
 });
 const reliefLayer = L.tileLayer.wms(WMS_SOURCES.gebco, {
@@ -306,12 +479,26 @@ const reliefLayer = L.tileLayer.wms(WMS_SOURCES.gebco, {
   format: "image/png",
   transparent: true,
   version: "1.3.0",
+  crs: L.CRS.EPSG3857,
   pane: "reliefPane",
-  opacity: 0.46,
+  opacity: 0.34,
+  tileSize: 256,
+  noWrap: true,
+  updateWhenZooming: false,
+  updateWhenIdle: true,
+  keepBuffer: 1,
   attribution: PROVIDERS.gebcoRelief.attribution,
   className: "relief-tile",
 });
 const trackLayer = L.layerGroup().addTo(map);
+if (typeof window !== "undefined" && window.__marineNavigator) {
+  window.__marineNavigator.layers = {
+    depthLayer,
+    contourLayer,
+    sonarLayer,
+    reliefLayer,
+  };
+}
 
 baseLayers.Default.addTo(map);
 
@@ -349,15 +536,27 @@ function getDepthStatusText() {
 
   if (!navigator.onLine) {
     if (!getOfflineAreaForCurrentView()) return t.depthOfflineUnavailableForArea;
-    return depthLayerStatus.loaded
+    return contourLayerStatus.loaded
       ? t.depthStatusOffline
       : t.depthStatusUnknownQuality;
   }
 
   if (isDepthLayerHiddenAtCurrentZoom()) return t.depthStatusUnknownQuality;
-  if (depthLayerStatus.failed) return t.noNumericDepthData;
-  if (depthLayerStatus.loaded) return t.depthStatusOnline;
+  if (contourLayerStatus.failed) return t.depthContoursUnavailable;
+  if (contourLayerStatus.loaded) return t.depthStatusOnline;
   return t.depthStatusUnknownQuality;
+}
+
+function getDepthChipText() {
+  const t = TEXT[lang] || TEXT.lt;
+
+  if (contourLayerStatus.failed) return t.depthStatusUnavailable;
+  if (!navigator.onLine) {
+    return getOfflineAreaForCurrentView()
+      ? t.depthStatusOffline
+      : t.depthStatusUnavailable;
+  }
+  return contourLayerStatus.loaded ? t.depthStatusOnline : t.depthStatusUnavailable;
 }
 
 function isDepthLayerHiddenAtCurrentZoom() {
@@ -374,18 +573,18 @@ function getDepthLayerDiagnosticMessage() {
   const t = TEXT[lang] || TEXT.lt;
 
   if (isDepthLayerHiddenAtCurrentZoom()) return t.depthLayerHiddenAtZoom;
-  if (depthLayerStatus.failed) return t.depthProviderFailed;
+  if (contourLayerStatus.failed) return t.depthContoursUnavailable;
   if (!navigator.onLine && !getOfflineAreaForCurrentView()) {
     return t.depthLayerUnavailableArea;
   }
-  if (depthLayerStatus.loaded) return t.depthLayerAvailableHere;
+  if (contourLayerStatus.loaded) return t.depthLayerAvailableHere;
   return t.depthLayerHiddenAtZoom;
 }
 
 function getDepthRequestText() {
   const t = TEXT[lang] || TEXT.lt;
-  if (depthLayerStatus.requestState === "succeeded") return t.depthRequestSucceeded;
-  if (depthLayerStatus.requestState === "failed") return t.depthRequestFailed;
+  if (contourLayerStatus.requestState === "succeeded") return t.depthRequestSucceeded;
+  if (contourLayerStatus.requestState === "failed") return t.depthRequestFailed;
   return t.depthRequestPending;
 }
 
@@ -394,11 +593,22 @@ function getDepthCenterText() {
   return `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
 }
 
+function hasActiveWmsBathymetryOverlays() {
+  return [depthLayer, contourLayer, sonarLayer, reliefLayer].some((layer) =>
+    map.hasLayer(layer),
+  );
+}
+
 function renderDepthStatus() {
+  setText("depth-chip", getDepthChipText());
   setText("depth-status", getDepthStatusText());
   setText(
     "continuous-depth-status",
-    depthLayerStatus.loaded ? TEXT[lang].continuousDepthVisible : TEXT[lang].continuousDepthChecking,
+    contourLayerStatus.failed
+      ? TEXT[lang].depthContoursUnavailable
+      : contourLayerStatus.loaded
+      ? TEXT[lang].continuousDepthVisible
+      : TEXT[lang].continuousDepthChecking,
   );
   setText("numeric-depth-status", TEXT[lang].numericDepthTapOnly);
   setText(
@@ -408,13 +618,16 @@ function renderDepthStatus() {
       center: getDepthCenterText(),
       zoom: map.getZoom(),
       request: getDepthRequestText(),
-      status: depthLayerStatus.httpStatus,
+      status: contourLayerStatus.httpStatus,
     })}`,
   );
 }
 
 function renderDepthSourceStatus() {
   const t = TEXT[lang] || TEXT.lt;
+  const fallbackButton = document.getElementById("use-fallback-depth");
+  const experimental3dButton = document.getElementById("experimental-3d-toggle");
+
   setText("primary-depth-source", t.primaryDepthSource(primaryDepthSource.name));
   setText(
     "fallback-depth-status",
@@ -427,13 +640,14 @@ function renderDepthSourceStatus() {
   setText("fallback-depth-quality", t.fallbackBathymetryQuality(fallbackDepthSource.quality));
   setText("use-fallback-depth", t.useFallbackBathymetry);
   setText("experimental-3d-toggle", t.experimental3dSeabed);
-  document.getElementById("experimental-3d-toggle")?.toggleAttribute(
-    "disabled",
-    !experimental3dSource?.url,
-  );
-  document
-    .getElementById("use-fallback-depth")
-    ?.toggleAttribute("disabled", !fallbackDepthStatus.available);
+  if (experimental3dButton) {
+    // TODO: Re-enable only when a real 3D seabed renderer is implemented.
+    experimental3dButton.hidden = true;
+    experimental3dButton.disabled = true;
+  }
+  if (fallbackButton) {
+    fallbackButton.toggleAttribute("disabled", !fallbackDepthStatus.available);
+  }
 }
 
 function renderProviderMetadata() {
@@ -521,38 +735,45 @@ async function resolveDepthHttpStatus(url) {
   }
 }
 
-function reportDepthLayerLoaded(event) {
+function reportWmsLayerLoaded(status, event) {
   const url = getTileUrl(event);
   logDepthTileUrl(url);
-  depthLayerStatus.loaded = true;
-  depthLayerStatus.failed = false;
-  depthLayerStatus.requestState = "succeeded";
-  depthLayerStatus.httpStatus = "OK";
-  depthLayerStatus.lastUrl = url;
+  status.loaded = true;
+  status.failed = false;
+  status.requestState = "succeeded";
+  status.httpStatus = "OK";
+  status.lastUrl = url;
   renderDepthStatus();
 }
 
-function reportDepthLayerLoadError(event) {
+function reportWmsLayerLoadError(status, event) {
   const url = getTileUrl(event);
   logDepthTileUrl(url);
-  depthLayerStatus.failed = true;
-  depthLayerStatus.requestState = "failed";
-  depthLayerStatus.httpStatus = event?.error?.status
+  status.failed = true;
+  status.requestState = "failed";
+  status.httpStatus = event?.error?.status
     ? `HTTP ${event.error.status}`
     : "status unavailable";
-  depthLayerStatus.lastUrl = url;
+  status.lastUrl = url;
   reportLayerLoadError();
   renderDepthStatus();
-  resolveDepthHttpStatus(url).then((status) => {
-    if (depthLayerStatus.lastUrl !== url) return;
-    depthLayerStatus.httpStatus = status;
+  resolveDepthHttpStatus(url).then((httpStatus) => {
+    if (status.lastUrl !== url) return;
+    status.httpStatus = httpStatus;
     renderDepthStatus();
   });
 }
 
-[depthLayer, contourLayer].forEach((layer) => {
-  layer.on("tileload", reportDepthLayerLoaded);
-  layer.on("tileerror", reportDepthLayerLoadError);
+depthLayer.on("tileload", (event) => reportWmsLayerLoaded(depthLayerStatus, event));
+depthLayer.on("tileerror", (event) => reportWmsLayerLoadError(depthLayerStatus, event));
+contourLayer.on("tileload", (event) => reportWmsLayerLoaded(contourLayerStatus, event));
+contourLayer.on("tileerror", (event) => reportWmsLayerLoadError(contourLayerStatus, event));
+
+[depthLayer, contourLayer, sonarLayer, reliefLayer].forEach((layer) => {
+  layer.on("add remove", () => {
+    applyMapOrientation();
+    renderOrientationButton();
+  });
 });
 
 reliefLayer.on("add", () => {
@@ -570,7 +791,6 @@ reliefLayer.on("remove", () => {
 ].forEach((layer) => {
   layer.on("tileerror", reportLayerLoadError);
 });
-depthLayer.addTo(map);
 contourLayer.addTo(map);
 sonarLayer.addTo(map);
 
@@ -607,21 +827,67 @@ map.on("baselayerchange", (event) => {
   renderOfflineEstimate();
 });
 
+function redrawVisibleWmsOverlays() {
+  [depthLayer, contourLayer, sonarLayer, reliefLayer].forEach((layer) => {
+    if (map.hasLayer(layer)) layer.redraw();
+  });
+}
+
+function scheduleWmsOverlayRedraw(delay = 120) {
+  window.clearTimeout(wmsRedrawTimer);
+  wmsRedrawTimer = window.setTimeout(() => {
+    syncWmsPaneTransform();
+    redrawVisibleWmsOverlays();
+    setWmsOverlayUpdating(false);
+  }, delay);
+}
+
+function syncWmsPaneTransform() {
+  ["reliefPane", "depthPane", "contourPane", "sonarPane"].forEach((paneName) => {
+    const pane = map.getPane(paneName);
+    if (!pane) return;
+    pane.style.transformOrigin = "";
+    pane.style.transform = "";
+  });
+}
+
+function setWmsOverlayUpdating(isUpdating) {
+  document.body.classList.toggle("wms-overlays-updating", isUpdating);
+}
+
+function finishWmsOverlayUpdate() {
+  mapGestureActive = false;
+  lastMapGestureEndedAt = Date.now();
+  scheduleWmsOverlayRedraw(120);
+}
+
+map.on("movestart zoomstart", () => {
+  mapGestureActive = true;
+  if (hasActiveWmsBathymetryOverlays()) {
+    window.clearTimeout(wmsRedrawTimer);
+    setWmsOverlayUpdating(true);
+  }
+});
+
 map.on("moveend", () => {
   renderOfflineEstimate();
   renderDepthStatus();
+  finishWmsOverlayUpdate();
+});
+
+map.on("zoomend rotateend", finishWmsOverlayUpdate);
+map.on("rotate", () => {
+  if (hasActiveWmsBathymetryOverlays()) scheduleWmsOverlayRedraw(180);
 });
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-// LT: Parenka kryptį pagal paskutinį maršruto segmentą arba GPS judėjimą. / EN: Picks heading from the latest route segment or GPS movement.
+// LT: Parenka kryptį pagal GPS kursą, paskutinį GPS judėjimą arba maršruto segmentą. / EN: Picks heading from GPS course, latest GPS movement, or route segment.
 function getActiveHeading() {
-  const routePositions = routeState.markers.map((marker) => marker.getLatLng());
-  if (routePositions.length >= 2) {
-    return bearingBetweenPoints(
-      routePositions[routePositions.length - 2],
-      routePositions[routePositions.length - 1],
-    );
+  const lastGpsPosition = currentPosition.positions[currentPosition.positions.length - 1];
+  const lastGpsHeading = lastGpsPosition?.[2];
+  if (Number.isFinite(lastGpsHeading)) {
+    return lastGpsHeading;
   }
 
   if (currentPosition.positions.length >= 2) {
@@ -635,17 +901,28 @@ function getActiveHeading() {
     );
   }
 
+  const routePositions = routeState.markers.map((marker) => marker.getLatLng());
+  if (routePositions.length >= 2) {
+    return bearingBetweenPoints(
+      routePositions[routePositions.length - 2],
+      routePositions[routePositions.length - 1],
+    );
+  }
+
   return 0;
 }
 
 // LT: Atnaujina žemėlapio orientaciją: šiaurė viršuje arba maršruto kryptis viršuje. / EN: Updates map orientation: north-up or route-heading-up.
 function applyMapOrientation() {
   const t = TEXT[lang] || TEXT.lt;
-  const targetBearing = orientationMode === "route" ? getActiveHeading() : 0;
+  const targetBearing = orientationMode === "heading" || orientationMode === "follow"
+    ? getActiveHeading()
+    : 0;
 
   if (typeof map.setBearing === "function") {
     map.setBearing(targetBearing);
-  } else if (orientationMode === "route") {
+    syncWmsPaneTransform();
+  } else if (orientationMode !== "north") {
     setText("map-footer", t.orientationUnavailable);
   }
 
@@ -654,15 +931,27 @@ function applyMapOrientation() {
 
 // LT: Rodo dabartinį orientacijos režimą mažame žemėlapio mygtuke. / EN: Shows the current orientation mode in the small map button.
 function renderOrientationButton() {
-  const button = document.getElementById("orientation-toggle");
-  if (!button) return;
+  const northButton = document.getElementById("orientation-toggle");
+  const headingButton = document.getElementById("heading-toggle");
+  const followButton = document.getElementById("follow-toggle");
 
-  button.textContent =
-    orientationMode === "route"
-      ? TEXT[lang].orientationRoute
-      : TEXT[lang].orientationNorth;
-  button.classList.toggle("is-active", orientationMode === "route");
-  button.setAttribute("aria-pressed", String(orientationMode === "route"));
+  if (northButton) {
+    northButton.textContent = TEXT[lang].orientationNorth;
+    northButton.classList.toggle("is-active", orientationMode === "north");
+    northButton.setAttribute("aria-pressed", String(orientationMode === "north"));
+  }
+
+  if (headingButton) {
+    headingButton.textContent = TEXT[lang].orientationHeading;
+    headingButton.classList.toggle("is-active", orientationMode === "heading");
+    headingButton.setAttribute("aria-pressed", String(orientationMode === "heading"));
+  }
+
+  if (followButton) {
+    followButton.textContent = TEXT[lang].orientationFollow;
+    followButton.classList.toggle("is-active", orientationMode === "follow");
+    followButton.setAttribute("aria-pressed", String(orientationMode === "follow"));
+  }
 }
 
 // LT: Užklausia tikrą EMODnet gylį pasirinktame taške. / EN: Requests a real EMODnet depth sample at the selected point.
@@ -688,6 +977,7 @@ async function fetchDepthSample(latlng) {
 // LT: Parodo realų gylį paspaustame žemėlapio taške. / EN: Shows the real depth at the clicked map point.
 async function showDepthAtPoint(event) {
   const t = TEXT[lang] || TEXT.lt;
+  const queryId = ++depthQuerySequence;
   const popup = L.popup()
     .setLatLng(event.latlng)
     .setContent(t.depthPopupLoading)
@@ -695,6 +985,7 @@ async function showDepthAtPoint(event) {
 
   try {
     const sample = await fetchDepthSample(event.latlng);
+    if (queryId !== depthQuerySequence) return;
     const depth = sample?.smoothed ?? sample?.avg ?? sample?.min ?? null;
     if (typeof depth === "number") {
       const depthValue = Math.abs(depth);
@@ -708,8 +999,15 @@ async function showDepthAtPoint(event) {
       popup.setContent(t.depthPopupNoData);
     }
   } catch (error) {
+    if (queryId !== depthQuerySequence) return;
     popup.setContent(t.depthPopupError);
   }
+}
+
+function shouldIgnoreDepthMapClick(event) {
+  if (mapGestureActive) return true;
+  if (Date.now() - lastMapGestureEndedAt < 250) return true;
+  return Boolean(event?.originalEvent?.defaultPrevented);
 }
 
 // LT: Atnaujina GPS žymeklį žemėlapyje ir nubrėžia vartotojo judėjimo taką. / EN: Updates the GPS marker on the map and draws the user's movement track.
@@ -735,7 +1033,7 @@ function updatePositionMarker(lat, lng, accuracy, speed = null, heading = null) 
     currentPosition.accuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
   }
 
-  currentPosition.positions.push([lat, lng]);
+  currentPosition.positions.push([lat, lng, Number.isFinite(heading) ? heading : null]);
   if (currentPosition.positions.length > 1) {
     if (currentPosition.track) {
       trackLayer.removeLayer(currentPosition.track);
@@ -747,7 +1045,9 @@ function updatePositionMarker(lat, lng, accuracy, speed = null, heading = null) 
     }).addTo(trackLayer);
   }
 
-  map.panTo([lat, lng], { animate: true, duration: 1.1 });
+  if (orientationMode === "follow") {
+    map.panTo([lat, lng], { animate: true, duration: 0.6 });
+  }
   document.getElementById("gps-status").textContent =
     TEXT[lang].gpsStatusActive(lat, lng);
   const speedKnots = metersPerSecondToKnots(speed);
@@ -1583,6 +1883,16 @@ function setupUI() {
   document
     .getElementById("use-fallback-depth")
     .addEventListener("click", useFallbackBathymetry);
+  document.getElementById("collapse-sidebar")?.addEventListener("click", collapseSidebar);
+  document.getElementById("open-sidebar")?.addEventListener("click", openSidebar);
+  document.getElementById("sidebar-backdrop")?.addEventListener("click", collapseSidebar);
+  document.getElementById("toggle-depth-panel")?.addEventListener("click", toggleDepthPanel);
+  document.getElementById("depth-chip")?.addEventListener("click", () => {
+    setDepthPanelCollapsed(false);
+    document.getElementById("toggle-depth-panel")?.focus();
+  });
+  document.getElementById("toggle-depth-legend")?.addEventListener("click", toggleDepthLegend);
+  mobileLayoutQuery?.addEventListener?.("change", renderResponsiveSidebarState);
 
   document.querySelectorAll(".nav-tabs button").forEach((button) => {
     button.addEventListener("click", () => activateTab(button.dataset.tab));
@@ -1605,6 +1915,9 @@ function setupUI() {
       setText("map-footer", TEXT[lang].footer);
     }
     closeMenu();
+    if (isMobileLayout() && !sidebarCollapsed) {
+      collapseSidebar();
+    }
   });
 
   // LT: Mygtukai jungiami pagal ID, kad nebūtų supainioti su kitais tokios pačios klasės mygtukais. / EN: Buttons are wired by ID so they are not confused with other buttons using the same class.
@@ -1636,8 +1949,30 @@ function setupUI() {
   const orientationToggle = document.getElementById("orientation-toggle");
   if (orientationToggle) {
     orientationToggle.addEventListener("click", () => {
-      orientationMode = orientationMode === "north" ? "route" : "north";
+      orientationMode = "north";
       localStorage.setItem("marine-navigator-orientation", orientationMode);
+      applyMapOrientation();
+    });
+  }
+
+  const headingToggle = document.getElementById("heading-toggle");
+  if (headingToggle) {
+    headingToggle.addEventListener("click", () => {
+      orientationMode = "heading";
+      localStorage.setItem("marine-navigator-orientation", orientationMode);
+      applyMapOrientation();
+    });
+  }
+
+  const followToggle = document.getElementById("follow-toggle");
+  if (followToggle) {
+    followToggle.addEventListener("click", () => {
+      orientationMode = "follow";
+      localStorage.setItem("marine-navigator-orientation", orientationMode);
+      const lastPosition = currentPosition.positions[currentPosition.positions.length - 1];
+      if (lastPosition) {
+        map.panTo([lastPosition[0], lastPosition[1]], { animate: true, duration: 0.6 });
+      }
       applyMapOrientation();
     });
   }
@@ -1655,6 +1990,7 @@ function setupUI() {
       return;
     }
 
+    if (shouldIgnoreDepthMapClick(e)) return;
     showDepthAtPoint(e);
   });
 
@@ -1685,6 +2021,9 @@ function setupUI() {
   }
 
   renderAllTexts();
+  renderResponsiveSidebarState();
+  setDepthPanelCollapsed(depthPanelCollapsed);
+  setDepthLegendCollapsed(depthLegendCollapsed);
   setBoatSettingsFromUI();
   renderOfflineEstimate();
   renderDepthStatus();

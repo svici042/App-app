@@ -1,5 +1,37 @@
 import { expect, test } from "@playwright/test";
 
+async function openSidebarIfCollapsed(page) {
+  if ((await page.locator("body.sidebar-collapsed").count()) > 0) {
+    await page.locator("#open-sidebar").click();
+  }
+}
+
+function boxesOverlap(a, b) {
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
+  );
+}
+
+async function expectMenuBelowOrientationControls(page) {
+  const menuBox = await page.locator("#open-sidebar").boundingBox();
+  const controlBoxes = [];
+  for (const selector of ["#orientation-toggle", "#heading-toggle", "#follow-toggle"]) {
+    const box = await page.locator(selector).boundingBox();
+    expect(box).not.toBeNull();
+    controlBoxes.push(box);
+  }
+  expect(menuBox).not.toBeNull();
+  for (const box of controlBoxes) {
+    expect(boxesOverlap(menuBox, box)).toBe(false);
+  }
+  expect(menuBox.y).toBeGreaterThanOrEqual(
+    Math.max(...controlBoxes.map((box) => box.y + box.height)) - 1,
+  );
+}
+
 test("loads the map shell and PWA metadata", async ({ page }) => {
   await page.goto("/");
 
@@ -22,6 +54,7 @@ test("loads the map shell and PWA metadata", async ({ page }) => {
 
 test("opens navigation menu and toggles route tools", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Navigacija" }).click();
   await expect(page.locator("#tab-navigation")).toBeVisible();
@@ -48,6 +81,7 @@ test("keeps controls usable after GPS start fails", async ({ page }) => {
   });
 
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Navigacija" }).click();
   await page.locator("#gps-start").click();
@@ -68,6 +102,7 @@ test("closes the menu without leaving focus inside hidden content", async ({ pag
   });
 
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Navigacija" }).click();
   await expect(page.locator("#menu-window")).toHaveAttribute("aria-hidden", "false");
@@ -85,14 +120,199 @@ test("closes the menu without leaving focus inside hidden content", async ({ pag
 
 test("language switch updates labels", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.locator("#lang-toggle").click();
   await expect(page.getByRole("button", { name: "Navigation" })).toBeVisible();
   await expect(page.locator("#orientation-toggle")).toContainText("North");
 });
 
+test("sidebar can collapse and reopen without hiding the map", async ({ page }) => {
+  await page.goto("/");
+  await openSidebarIfCollapsed(page);
+
+  await expect(page.locator("#app-sidebar")).toBeVisible();
+  await page.locator("#collapse-sidebar").click();
+  await expect(page.locator("body")).toHaveClass(/sidebar-collapsed/);
+  await expect(page.locator("#open-sidebar")).toBeVisible();
+  await expect(page.locator("#map")).toBeVisible();
+
+  await page.locator("#open-sidebar").click();
+  await expect(page.locator("body")).not.toHaveClass(/sidebar-collapsed/);
+  await expect(page.locator("#app-sidebar")).toBeVisible();
+});
+
+test("depth diagnostics panel can collapse to a status chip and reopen", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.locator("body")).toHaveClass(/depth-panel-collapsed/);
+  await expect(page.locator("#depth-chip")).toBeVisible();
+  await expect(page.locator("#depth-chip")).toHaveText(/Depths (online|offline|unavailable)/);
+  await expect(page.locator("#depth-debug")).toBeHidden();
+
+  await page.locator("#depth-chip").click();
+  await expect(page.locator("body")).not.toHaveClass(/depth-panel-collapsed/);
+  await expect(page.locator("#depth-debug")).toBeVisible();
+});
+
+test("depth legend is compact by default and does not block the map", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.locator("body")).toHaveClass(/depth-legend-collapsed/);
+  await expect(page.locator("#toggle-depth-legend")).toBeVisible();
+  await expect(page.locator("#depth-legend-content")).toBeHidden();
+
+  const legendBox = await page.locator(".depth-legend").boundingBox();
+  const mapBox = await page.locator("#map").boundingBox();
+  expect(legendBox?.width).toBeLessThan(120);
+  expect(legendBox?.height).toBeLessThan(60);
+  expect(mapBox?.width).toBeGreaterThan(300);
+});
+
+test("mobile sidebar starts as a drawer and closes when tapping outside", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expect(page.locator("body")).toHaveClass(/sidebar-collapsed/);
+  await expect(page.locator("#open-sidebar")).toBeVisible();
+  const mapBox = await page.locator("#map").boundingBox();
+  expect(mapBox?.width).toBeGreaterThan(300);
+
+  await page.locator("#open-sidebar").click();
+  await expect(page.locator("body")).toHaveClass(/sidebar-drawer-open/);
+  await page.locator("#sidebar-backdrop").click({ position: { x: 380, y: 20 } });
+  await expect(page.locator("body")).not.toHaveClass(/sidebar-drawer-open/);
+  await expect(page.locator("body")).toHaveClass(/sidebar-collapsed/);
+  await expect(page.locator("#map")).toBeVisible();
+});
+
+test("mobile menu and compass controls do not overlap", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expectMenuBelowOrientationControls(page);
+});
+
+test("mobile landscape menu and orientation controls do not overlap", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/");
+
+  await expectMenuBelowOrientationControls(page);
+});
+
+test("desktop menu and compass controls do not overlap when sidebar is collapsed", async ({ page }) => {
+  await page.goto("/");
+  await openSidebarIfCollapsed(page);
+  await page.locator("#collapse-sidebar").click();
+
+  await expectMenuBelowOrientationControls(page);
+});
+
+test("desktop menu and compass controls do not overlap", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "desktop-only control state");
+  await page.goto("/");
+
+  const compassBox = await page.locator("#orientation-toggle").boundingBox();
+  expect(compassBox).not.toBeNull();
+  await expect(page.locator("#open-sidebar")).toBeHidden();
+});
+
+test("North button resets map bearing to zero", async ({ page }) => {
+  await page.goto("/");
+
+  await page.evaluate(() => window.__marineNavigator.map.setBearing(73));
+  await expect
+    .poll(() => page.evaluate(() => window.__marineNavigator.map.getBearing()))
+    .toBe(73);
+
+  await page.locator("#orientation-toggle").click();
+
+  await expect
+    .poll(() => page.evaluate(() => window.__marineNavigator.map.getBearing()))
+    .toBe(0);
+  await expect(page.locator("#orientation-toggle")).toHaveAttribute("aria-pressed", "true");
+});
+
+test("heading and follow mode keep user marker visible", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        clearWatch: () => {},
+        watchPosition: (success) => {
+          setTimeout(
+            () =>
+              success({
+                coords: {
+                  latitude: 55.7,
+                  longitude: 21.1,
+                  accuracy: 8,
+                  speed: 4,
+                  heading: 82,
+                },
+              }),
+            0,
+          );
+          return 11;
+        },
+      },
+    });
+  });
+
+  await page.goto("/");
+  await openSidebarIfCollapsed(page);
+  await page.getByRole("button", { name: "Navigacija" }).click();
+  await page.locator("#gps-start").click();
+  await page.locator("#close-menu").click();
+  if ((await page.locator("body.sidebar-drawer-open").count()) > 0) {
+    await page.locator("#collapse-sidebar").click();
+  }
+  await page.locator("#follow-toggle").click();
+
+  await expect
+    .poll(() => page.evaluate(() => window.__marineNavigator.orientationMode))
+    .toBe("follow");
+  await expect
+    .poll(() => page.evaluate(() => Math.round(window.__marineNavigator.map.getBearing())))
+    .toBe(82);
+
+  const markerBox = await page.locator(".leaflet-interactive").first().boundingBox();
+  const mapBox = await page.locator("#map").boundingBox();
+  expect(markerBox).not.toBeNull();
+  expect(mapBox).not.toBeNull();
+  expect(markerBox.x).toBeGreaterThanOrEqual(mapBox.x);
+  expect(markerBox.y).toBeGreaterThanOrEqual(mapBox.y);
+  expect(markerBox.x).toBeLessThanOrEqual(mapBox.x + mapBox.width);
+  expect(markerBox.y).toBeLessThanOrEqual(mapBox.y + mapBox.height);
+});
+
+test("WMS layers redraw after zoom, pan, and rotation events", async ({ page }) => {
+  await page.goto("/");
+
+  await page.evaluate(() => {
+    const layer = window.__marineNavigator.layers.contourLayer;
+    window.__wmsRedrawCount = 0;
+    const originalRedraw = layer.redraw.bind(layer);
+    layer.redraw = () => {
+      window.__wmsRedrawCount += 1;
+      return originalRedraw();
+    };
+  });
+
+  await page.evaluate(() => window.__marineNavigator.map.fire("zoomend"));
+  await page.evaluate(() => window.__marineNavigator.map.fire("moveend"));
+  await page.evaluate(() => window.__marineNavigator.map.setBearing(37));
+
+  await expect
+    .poll(() => page.evaluate(() => window.__wmsRedrawCount))
+    .toBeGreaterThanOrEqual(1);
+  const redrawCount = await page.evaluate(() => window.__wmsRedrawCount);
+  expect(redrawCount).toBeLessThanOrEqual(2);
+});
+
 test("offline panel exposes area download controls", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Išsaugotas vaizdas" }).click();
   await expect(page.locator("#offline-area-name")).toBeVisible();
@@ -105,6 +325,7 @@ test("offline panel exposes area download controls", async ({ page }) => {
 
 test("charts panel exposes provider health status", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Žemėlapiai" }).click();
   await expect(page.locator("#depth-safety-note")).toHaveText(
@@ -121,7 +342,31 @@ test("charts panel exposes provider health status", async ({ page }) => {
   await expect(page.locator("#provider-health-list")).toBeVisible();
 });
 
-test("depth soundings and contours are enabled in the layer control by default", async ({ page }) => {
+test("diagnostics report contour availability when WMS tiles load", async ({ page }) => {
+  const transparentPng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+    "base64",
+  );
+  await page.route("https://ows.emodnet-bathymetry.eu/wms**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "image/png",
+      body: transparentPng,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+      },
+    }),
+  );
+
+  await page.goto("/");
+
+  await expect(page.locator("#continuous-depth-status")).toHaveText(
+    "Continuous depth overlays: contours enabled",
+  );
+  await expect(page.locator("#depth-debug")).toContainText("Depth layer available here");
+});
+
+test("color bathymetry is optional and contours are enabled by default", async ({ page }) => {
   await page.goto("/");
 
   const overlayStates = await page.evaluate(() =>
@@ -135,10 +380,19 @@ test("depth soundings and contours are enabled in the layer control by default",
 
   expect(overlayStates).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ text: "Depth soundings", checked: true }),
+      expect.objectContaining({ text: "Depth soundings", checked: false }),
       expect.objectContaining({ text: "Depth contours", checked: true }),
+      expect.objectContaining({ text: "Experimental visual seabed relief", checked: false }),
     ]),
   );
+});
+
+test("broken experimental 3D seabed control is hidden", async ({ page }) => {
+  await page.goto("/");
+  await openSidebarIfCollapsed(page);
+
+  await page.getByRole("button", { name: "Žemėlapiai" }).click();
+  await expect(page.locator("#experimental-3d-toggle")).toBeHidden();
 });
 
 test("clicking the map requests and shows numeric EMODnet depth", async ({ page }) => {
@@ -159,6 +413,92 @@ test("clicking the map requests and shows numeric EMODnet depth", async ({ page 
     "Realus EMODnet gylis: 12.3 m",
   );
   expect(requestedDepth).toBe(true);
+});
+
+test("depth tap query fires once per tap", async ({ page }) => {
+  let requestCount = 0;
+  await page.route("**/api/depth?**", (route) => {
+    requestCount += 1;
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ smoothed: -7.8 }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator("#map").click({ position: { x: 220, y: 320 } });
+
+  await expect(page.locator(".leaflet-popup-content")).toContainText(
+    "Realus EMODnet gylis: 7.8 m",
+  );
+  expect(requestCount).toBe(1);
+});
+
+test("depth query ignores map clicks fired during a gesture", async ({ page }) => {
+  let requestCount = 0;
+  await page.route("**/api/depth?**", (route) => {
+    requestCount += 1;
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ smoothed: -5 }),
+    });
+  });
+
+  await page.goto("/");
+  await page.evaluate(() => {
+    const map = window.__marineNavigator.map;
+    map.fire("movestart");
+    map.fire("click", {
+      latlng: map.getCenter(),
+      originalEvent: new MouseEvent("click", { bubbles: true }),
+    });
+    map.fire("moveend");
+  });
+  await page.waitForTimeout(300);
+
+  expect(requestCount).toBe(0);
+  await expect(page.locator(".leaflet-popup-content")).toHaveCount(0);
+});
+
+test("newer depth tap result is not overwritten by stale older response", async ({ page }) => {
+  let requestCount = 0;
+  let firstRoute;
+  await page.route("**/api/depth?**", async (route) => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      firstRoute = route;
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ smoothed: -2 }),
+    });
+    await firstRoute.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ smoothed: -99 }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator("#map").click({ position: { x: 220, y: 320 } });
+  await page.locator("#map").click({ position: { x: 320, y: 360 } });
+
+  const latestPopup = page.locator(".leaflet-popup-content").filter({
+    hasText: "Realus EMODnet gylis: 2.0 m",
+  });
+  await expect(latestPopup).toBeVisible();
+  await expect(latestPopup).toContainText(
+    "Realus EMODnet gylis: 2.0 m",
+  );
+  await page.waitForTimeout(150);
+  await expect(
+    page.locator(".leaflet-popup-content").filter({ hasText: "99.0 m" }),
+  ).toHaveCount(0);
 });
 
 test("clicking the map reports when numeric depth is unavailable", async ({ page }) => {
@@ -200,6 +540,7 @@ test("clicking the map shows a visible depth provider error", async ({ page }) =
 
 test("shows provider metadata registry in the layer status UI", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Žemėlapiai" }).click();
   const metadata = page.locator("#provider-metadata-list");
@@ -215,6 +556,7 @@ test("shows provider metadata registry in the layer status UI", async ({ page })
 
 test("shows active depth and relief provider metadata in the data source panel", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Žemėlapiai" }).click();
   await expect(page.locator("#data-source-title")).toHaveText("Data source / Data origin");
@@ -240,10 +582,11 @@ test("shows active depth and relief provider metadata in the data source panel",
 
 test("shows fallback bathymetry availability and quality warning", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Žemėlapiai" }).click();
   await expect(page.locator("#fallback-depth-status")).toHaveText(
-    "Approximate seabed relief: available",
+    "Experimental visual seabed relief: available",
   );
   await expect(page.locator("#fallback-depth-quality")).toHaveText(
     "Relief layer is low-resolution visual bathymetry, not safe depth data.",
@@ -251,21 +594,22 @@ test("shows fallback bathymetry availability and quality warning", async ({ page
   await expect(
     page.getByRole("button", { name: "Use approximate seabed relief" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Experimental 3D seabed" })).toBeDisabled();
+  await expect(page.locator("#experimental-3d-toggle")).toBeHidden();
 });
 
 test("fallback bathymetry is selected only after explicit user choice", async ({ page }) => {
   await page.goto("/");
+  await openSidebarIfCollapsed(page);
 
   await page.getByRole("button", { name: "Žemėlapiai" }).click();
   await expect(page.locator("#fallback-depth-status")).toHaveText(
-    "Approximate seabed relief: available",
+    "Experimental visual seabed relief: available",
   );
   await page.getByRole("button", { name: "Use approximate seabed relief" }).click();
   await expect(page.locator("#fallback-depth-status")).toHaveText(
-    "Approximate seabed relief: available · selected",
+    "Experimental visual seabed relief: available · selected",
   );
-  await expect(page.getByRole("button", { name: "Experimental 3D seabed" })).toBeDisabled();
+  await expect(page.locator("#experimental-3d-toggle")).toBeHidden();
 });
 
 test("shows depth provider failure instead of silently hiding depth data", async ({ page }) => {
@@ -287,12 +631,14 @@ test("shows depth provider failure instead of silently hiding depth data", async
   await page.goto("/");
 
   await expect(page.locator("#depth-status")).toHaveText(
-    "No numeric depth data available here. Approximate seabed relief may still be available.",
+    "Depth contours unavailable from current provider in this area.",
   );
   await expect(page.locator("#primary-depth-source")).toHaveText(
     "Primary depth source: EMODnet",
   );
-  await expect(page.locator("#depth-debug")).toContainText("Depth provider failed");
+  await expect(page.locator("#depth-debug")).toContainText(
+    "Depth contours unavailable from current provider in this area.",
+  );
   await expect(page.locator("#depth-debug")).toContainText("Request: failed");
   await expect(page.locator("#depth-debug")).toContainText("Status: HTTP 503");
   await expect(page.locator("#map-footer")).toContainText(

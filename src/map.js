@@ -3,6 +3,8 @@ export function createMap(L, id) {
     center: [55.7, 21.1],
     zoom: 7,
     zoomControl: false,
+    zoomAnimation: false,
+    markerZoomAnimation: false,
     rotate: true,
     bearing: 0,
     touchRotate: true,
@@ -10,10 +12,11 @@ export function createMap(L, id) {
 }
 
 export function createMapPanes(map) {
-  map.createPane("reliefPane");
-  map.createPane("depthPane");
-  map.createPane("contourPane");
-  map.createPane("sonarPane");
+  const tilePane = map.getPane("tilePane");
+  map.createPane("reliefPane", tilePane);
+  map.createPane("depthPane", tilePane);
+  map.createPane("contourPane", tilePane);
+  map.createPane("sonarPane", tilePane);
   map.getPane("reliefPane").style.zIndex = 430;
   map.getPane("depthPane").style.zIndex = 440;
   map.getPane("contourPane").style.zIndex = 450;
