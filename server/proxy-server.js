@@ -13,11 +13,23 @@ const CACHE_TTL_MS = 1000 * 60 * 60;
 const MAX_URL_LENGTH = 4096;
 const memoryCache = new Map();
 const DISK_CACHE_DIR = path.resolve(".proxy-cache");
-const ALLOWED_ORIGINS = (process.env.PROXY_ALLOWED_ORIGINS || "*")
+const DEFAULT_ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:4173",
+  "http://127.0.0.1:4173",
+];
+const ALLOWED_ORIGINS = (
+  process.env.PROXY_ALLOWED_ORIGINS || DEFAULT_ALLOWED_ORIGINS.join(",")
+)
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const PROVIDER_TIMEOUT_MS = Number(process.env.PROXY_PROVIDER_TIMEOUT_MS || 3000);
+const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS || 10000);
+const PROXY_MAX_RESPONSE_BYTES = Number(
+  process.env.PROXY_MAX_RESPONSE_BYTES || 15 * 1024 * 1024,
+);
 
 const SOURCES = {
   emodnetWms: "https://ows.emodnet-bathymetry.eu/wms",
@@ -99,6 +111,36 @@ async function diskCacheSet(key, value) {
   );
 }
 
+async function readLimitedBody(upstream) {
+  const contentLength = Number(upstream.headers.get("content-length") || 0);
+  if (contentLength > PROXY_MAX_RESPONSE_BYTES) {
+    const error = new Error("Upstream response too large");
+    error.status = 413;
+    throw error;
+  }
+
+  const reader = upstream.body?.getReader();
+  if (!reader) return Buffer.from(await upstream.arrayBuffer());
+
+  const chunks = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > PROXY_MAX_RESPONSE_BYTES) {
+      await reader.cancel();
+      const error = new Error("Upstream response too large");
+      error.status = 413;
+      throw error;
+    }
+    chunks.push(value);
+  }
+
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+}
+
 async function proxyFetch(targetUrl, request, response) {
   const cached = cacheGet(targetUrl) || (await diskCacheGet(targetUrl));
   if (cached) {
@@ -110,8 +152,11 @@ async function proxyFetch(targetUrl, request, response) {
     return;
   }
 
-  const upstream = await fetch(targetUrl);
-  const body = Buffer.from(await upstream.arrayBuffer());
+  const upstream = await fetch(targetUrl, {
+    signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
+    headers: { Accept: "*/*" },
+  });
+  const body = await readLimitedBody(upstream);
   const contentType = upstream.headers.get("content-type") || "application/octet-stream";
 
   if (upstream.ok) {
@@ -251,7 +296,8 @@ const server = http.createServer(async (request, response) => {
 
     send(response, 404, "Not found", {}, request);
   } catch (error) {
-    send(response, 502, JSON.stringify({ error: error.message }), {
+    const status = error.status || (error.name === "TimeoutError" ? 504 : 502);
+    send(response, status, JSON.stringify({ error: error.message }), {
       "Content-Type": "application/json",
     }, request);
   }

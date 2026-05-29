@@ -1,4 +1,5 @@
-export const CACHE_NAME = "marine-navigator-map-cache-v2";
+export const CACHE_NAME = "marine-navigator-map-cache-v3";
+export const RUNTIME_CACHE_NAME = "marine-navigator-runtime-cache-v2";
 export const ROUTE_HISTORY_KEY = "marine-navigator-route-history";
 export const OFFLINE_AREAS_KEY = "marine-navigator-offline-areas";
 export const PROXY_BASE_URL = "/api";

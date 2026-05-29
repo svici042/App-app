@@ -27,6 +27,9 @@
 - [x] Pridėtas offline atsisiuntimų manifestas: zonos pavadinimas, ribos, zoom lygiai, dydis, data ir trynimas per UI.
 - [x] Produkcijai proxy CORS `*` pakeičiamas per `PROXY_ALLOWED_ORIGINS` env allowlist.
 - [x] Pridėtas provider health indikatorius EMODnet, GEBCO ir OpenStreetMap būsenai.
+- [x] Uždarytas proxy production saugumas: numatytas lokalus CORS allowlist, upstream timeout ir atsakymo dydžio limitas.
+- [x] Pridėtas ribojamas service worker runtime cache, kad automatinis cache neaugtų be ribų.
+- [x] Android release saugumui išjungtas app duomenų backup per manifestą.
 
 ## Patikrinimai
 
@@ -39,7 +42,7 @@
 
 - [ ] Pakeisti rankinį PWA service worker į `vite-plugin-pwa` arba Workbox su automatiniu hashed build failų precache.
 - [x] Pridėti offline atsisiuntimų manifestą: zonos pavadinimas, ribos, zoom lygiai, dydis, data ir trynimas per UI.
-- [ ] Įdiegti cache pruning/LRU strategiją, kad offline plytelės neperžengtų vartotojo pasirinktos ribos.
+- [x] Įdiegti service worker runtime cache pruning strategiją, kad automatinis cache neaugtų be ribų.
 - [ ] Perkelti proxy cache į SQLite su TTL, dydžio limitais ir administraciniu valymo endpointu.
 - [x] Produkcijai pakeisti proxy CORS `*` į domenų allowlist per env konfigūraciją.
 - [x] Pridėti provider health indikatorių, kad vartotojas matytų EMODnet/GEBCO/OpenStreetMap būseną.

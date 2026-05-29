@@ -11,6 +11,7 @@ import {
   OFFLINE_AREAS_KEY,
   ROUTE_HISTORY_KEY,
   PROXY_BASE_URL,
+  RUNTIME_CACHE_NAME,
   TILE_SOURCES,
   WMS_SOURCES,
 } from "./config.js";
@@ -526,35 +527,50 @@ function geolocate() {
     );
   });
 
-  gpsWatchId = navigator.geolocation.watchPosition(
-    (position) => {
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-      const accuracy = position.coords.accuracy;
-      updatePositionMarker(
-        lat,
-        lng,
-        accuracy,
-        position.coords.speed,
-        position.coords.heading,
-      );
-    },
-    (error) => {
-      document.getElementById("gps-status").textContent =
-        TEXT[lang].gpsStatusError(error.message);
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 5000,
-      timeout: 10000,
-    },
-  );
-  renderGpsButtonState();
+  try {
+    gpsWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+        updatePositionMarker(
+          lat,
+          lng,
+          accuracy,
+          position.coords.speed,
+          position.coords.heading,
+        );
+      },
+      (error) => {
+        if (gpsWatchId !== null) {
+          navigator.geolocation.clearWatch?.(gpsWatchId);
+          gpsWatchId = null;
+        }
+        document.getElementById("gps-status").textContent =
+          TEXT[lang].gpsStatusError(error.message);
+        renderGpsButtonState();
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 10000,
+      },
+    );
+    renderGpsButtonState();
+  } catch (error) {
+    gpsWatchId = null;
+    document.getElementById("gps-status").textContent =
+      TEXT[lang].gpsStatusError(error.message);
+    renderGpsButtonState();
+  }
 }
 
 // LT: Sustabdo GPS sekimą, bet palieka paskutinį žymeklį žemėlapyje. / EN: Stops GPS tracking while keeping the last marker on the map.
 function stopGps() {
-  if (gpsWatchId === null) return;
+  if (gpsWatchId === null) {
+    renderGpsButtonState();
+    return;
+  }
 
   navigator.geolocation.clearWatch?.(gpsWatchId);
   gpsWatchId = null;
@@ -1155,6 +1171,7 @@ async function deleteSelectedOfflineArea() {
 async function clearOfflineCache() {
   if ("caches" in window) {
     await caches.delete(CACHE_NAME);
+    await caches.delete(RUNTIME_CACHE_NAME);
   }
   localStorage.removeItem("marine-navigator-offline");
   localStorage.removeItem(OFFLINE_AREAS_KEY);

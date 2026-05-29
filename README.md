@@ -71,8 +71,10 @@
 ### Proxy konfigūracija
 
 - `PORT` - proxy portas, pagal nutylėjimą `8787`.
-- `PROXY_ALLOWED_ORIGINS` - kableliais atskirtas CORS origin allowlist. Pagal nutylėjimą `*`, patogu lokaliam dev režimui. Produkcijai nustatykite konkrečius domenus, pvz. `https://example.com,https://app.example.com`.
+- `PROXY_ALLOWED_ORIGINS` - kableliais atskirtas CORS origin allowlist. Pagal nutylėjimą leidžiami tik lokalūs Vite originai (`localhost` / `127.0.0.1` ant `5173` ir `4173`). Produkcijai nustatykite konkrečius domenus, pvz. `https://example.com,https://app.example.com`.
 - `PROXY_PROVIDER_TIMEOUT_MS` - provider health patikros timeout milisekundėmis, pagal nutylėjimą `3000`.
+- `PROXY_TIMEOUT_MS` - upstream proxy užklausų timeout milisekundėmis, pagal nutylėjimą `10000`.
+- `PROXY_MAX_RESPONSE_BYTES` - maksimalus vieno upstream atsakymo dydis baitais, pagal nutylėjimą `15728640` (15 MB).
 - `/api/health` - paprastas proxy gyvybingumo patikrinimas.
 - `/api/provider-health` - EMODnet, GEBCO ir OpenStreetMap pasiekiamumo bei latency patikrinimas.
 
@@ -81,6 +83,7 @@
 - Appas nėra sertifikuota navigacijos saugumo sistema. Batimetrija priklauso nuo EMODnet/GEBCO servisų prieinamumo ir tikslumo.
 - Proxy leidžia tik whitelist’intus EMODnet/GEBCO/OpenStreetMap hostus, riboja URL ilgį, prideda `nosniff`, `no-referrer` ir CORP headerius.
 - Produkcijoje nustatykite `PROXY_ALLOWED_ORIGINS`, kad CORS veiktų tik su leidžiamais domenais.
+- Proxy riboja upstream užklausų trukmę ir atsakymo dydį, kad provider klaidos neišpūstų cache ar neužkabintų proceso.
 - Offline cache gali užimti daug vietos, todėl prieš atsisiuntimą rodoma dydžio ir kvotos informacija, o išsaugotas zonas galima trinti atskirai.
 
 ## EN
@@ -154,8 +157,10 @@
 ### Proxy Configuration
 
 - `PORT` - proxy port, defaults to `8787`.
-- `PROXY_ALLOWED_ORIGINS` - comma-separated CORS origin allowlist. Defaults to `*` for local development. In production, set explicit domains, e.g. `https://example.com,https://app.example.com`.
+- `PROXY_ALLOWED_ORIGINS` - comma-separated CORS origin allowlist. Defaults to local Vite origins only (`localhost` / `127.0.0.1` on `5173` and `4173`). In production, set explicit domains, e.g. `https://example.com,https://app.example.com`.
 - `PROXY_PROVIDER_TIMEOUT_MS` - provider health timeout in milliseconds, defaults to `3000`.
+- `PROXY_TIMEOUT_MS` - upstream proxy request timeout in milliseconds, defaults to `10000`.
+- `PROXY_MAX_RESPONSE_BYTES` - maximum size for one upstream response in bytes, defaults to `15728640` (15 MB).
 - `/api/health` - simple proxy liveness check.
 - `/api/provider-health` - EMODnet, GEBCO, and OpenStreetMap availability and latency check.
 
@@ -164,6 +169,7 @@
 - The app is not a certified navigation safety system. Bathymetry depends on EMODnet/GEBCO service availability and accuracy.
 - The proxy only calls whitelisted EMODnet/GEBCO/OpenStreetMap hosts, limits URL length, and adds `nosniff`, `no-referrer`, and CORP headers.
 - In production, set `PROXY_ALLOWED_ORIGINS` so CORS only works for approved domains.
+- The proxy limits upstream request duration and response size so provider failures cannot grow cache or hold the process indefinitely.
 - Offline cache can use significant storage, so the app shows size and quota information before download and allows deleting saved areas individually.
 
 ## LovLaus Copyright

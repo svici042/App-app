@@ -1,0 +1,16 @@
+[2m00:36:25[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/provider-health[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1193:18)
+    at afterConnectMultiple (node:net:1783:7)
+[2m00:36:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/provider-health[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1193:18)
+    at afterConnectMultiple (node:net:1783:7)
+[2m00:37:36[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/provider-health[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1193:18)
+    at afterConnectMultiple (node:net:1783:7)
+[2m00:37:37[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/provider-health[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1193:18)
+    at afterConnectMultiple (node:net:1783:7)

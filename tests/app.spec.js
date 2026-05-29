@@ -29,6 +29,32 @@ test("opens navigation menu and toggles route tools", async ({ page }) => {
   await expect(page.locator("#measure-mode-btn")).toContainText("Pasirinkite");
 });
 
+test("keeps controls usable after GPS start fails", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        clearWatch: () => {},
+        watchPosition: (_success, error) => {
+          setTimeout(() => error({ message: "Permission denied" }), 0);
+          return 7;
+        },
+      },
+    });
+  });
+
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Navigacija" }).click();
+  await page.locator("#gps-start").click();
+  await expect(page.locator("#gps-start")).toContainText("Paleisti GPS");
+
+  await page.getByRole("button", { name: "Žemėlapiai" }).click();
+  await expect(page.locator("#tab-charts")).toBeVisible();
+  await page.getByRole("button", { name: "Nustatymai" }).click();
+  await expect(page.locator("#tab-settings")).toBeVisible();
+});
+
 test("closes the menu without leaving focus inside hidden content", async ({ page }) => {
   const ariaWarnings = [];
   page.on("console", (message) => {
