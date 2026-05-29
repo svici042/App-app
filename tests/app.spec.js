@@ -117,6 +117,21 @@ test("charts panel exposes provider health status", async ({ page }) => {
   await expect(page.locator("#provider-health-list")).toBeVisible();
 });
 
+test("shows provider metadata registry in the layer status UI", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Žemėlapiai" }).click();
+  const metadata = page.locator("#provider-metadata-list");
+  await expect(metadata).toContainText("OpenStreetMap: tile · base map");
+  await expect(metadata).toContainText("Esri World Imagery: tile · satellite imagery");
+  await expect(metadata).toContainText("Esri World Topo Map: tile · terrain/topographic base map");
+  await expect(metadata).toContainText("EMODnet Bathymetry: wms · bathymetry depth soundings and contours");
+  await expect(metadata).toContainText("GEBCO relief: wms · visual seabed relief");
+  await expect(metadata).toContainText("safety referenceOnly");
+  await expect(metadata).toContainText("safety visualOnly");
+  await expect(metadata).not.toContainText("certified");
+});
+
 test("shows fallback bathymetry availability and quality warning", async ({ page }) => {
   await page.goto("/");
 

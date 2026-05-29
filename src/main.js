@@ -10,6 +10,7 @@ import {
   CACHE_NAME,
   DEPTH_SOURCES,
   OFFLINE_AREAS_KEY,
+  PROVIDERS,
   ROUTE_HISTORY_KEY,
   PROXY_BASE_URL,
   RUNTIME_CACHE_NAME,
@@ -226,6 +227,7 @@ function renderAllTexts() {
   renderPwaStatus();
   renderBoatPreview();
   renderDepthStatus();
+  renderProviderMetadata();
 
   const gpsStatus = document.getElementById("gps-status");
   if (gpsStatus) {
@@ -259,13 +261,13 @@ createMapPanes(map);
 // LT: Baziniai žemėlapio sluoksniai, kuriuos galima pasirinkti dešinėje valdiklyje. / EN: Base map layers selectable from the control on the right.
 const baseLayers = {
   Default: L.tileLayer(TILE_SOURCES.Default, {
-    attribution: "© OpenStreetMap contributors",
+    attribution: PROVIDERS.openstreetmap.attribution,
   }),
   Satelitas: L.tileLayer(TILE_SOURCES.Satelitas, {
-    attribution: "© Esri",
+    attribution: PROVIDERS.esriImagery.attribution,
   }),
   Terra: L.tileLayer(TILE_SOURCES.Terra, {
-    attribution: "© Esri",
+    attribution: PROVIDERS.esriTerrain.attribution,
   }),
 };
 
@@ -276,7 +278,7 @@ const depthLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   transparent: true,
   pane: "depthPane",
   opacity: 0.72,
-  attribution: "EMODnet Bathymetry",
+  attribution: PROVIDERS.emodnetBathymetry.attribution,
 });
 const contourLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: primaryDepthSource.layers.contours,
@@ -284,7 +286,7 @@ const contourLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   transparent: true,
   pane: "contourPane",
   opacity: 0.95,
-  attribution: "EMODnet Bathymetry",
+  attribution: PROVIDERS.emodnetBathymetry.attribution,
 });
 const sonarLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: "emodnet:source_references",
@@ -292,7 +294,7 @@ const sonarLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   transparent: true,
   pane: "sonarPane",
   opacity: 0.72,
-  attribution: "EMODnet Bathymetry",
+  attribution: PROVIDERS.emodnetBathymetry.attribution,
 });
 const reliefLayer = L.tileLayer.wms(WMS_SOURCES.gebco, {
   layers: fallbackDepthSource.layers.relief,
@@ -301,7 +303,7 @@ const reliefLayer = L.tileLayer.wms(WMS_SOURCES.gebco, {
   version: "1.3.0",
   pane: "reliefPane",
   opacity: 0.46,
-  attribution: fallbackDepthSource.name,
+  attribution: PROVIDERS.gebcoRelief.attribution,
   className: "relief-tile",
 });
 const trackLayer = L.layerGroup().addTo(map);
@@ -422,6 +424,21 @@ function renderDepthSourceStatus() {
   document
     .getElementById("use-fallback-depth")
     ?.toggleAttribute("disabled", !fallbackDepthStatus.available);
+}
+
+function renderProviderMetadata() {
+  const list = document.getElementById("provider-metadata-list");
+  if (!list) return;
+
+  list.innerHTML = "";
+  Object.values(PROVIDERS).forEach((provider) => {
+    const item = document.createElement("li");
+    item.textContent =
+      `${provider.displayName}: ${provider.layerType} · ${provider.dataType} · ` +
+      `quality ${provider.quality} · safety ${provider.safetyUse} · ` +
+      `offline ${provider.offlineAllowed} · attribution ${provider.attribution}`;
+    list.appendChild(item);
+  });
 }
 
 function useFallbackBathymetry() {

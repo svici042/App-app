@@ -369,7 +369,8 @@ button {
     line-height: 1.45;
 }
 
-.provider-health-list {
+.provider-health-list,
+.provider-metadata-list {
     display: grid;
     gap: 0.35rem;
     margin: 0;
@@ -377,7 +378,8 @@ button {
     list-style: none;
 }
 
-.provider-health-list li {
+.provider-health-list li,
+.provider-metadata-list li {
     display: flex;
     align-items: center;
     gap: 0.45rem;
@@ -385,7 +387,8 @@ button {
     font-size: 0.82rem;
 }
 
-.provider-health-list li::before {
+.provider-health-list li::before,
+.provider-metadata-list li::before {
     content: "";
     width: 0.55rem;
     height: 0.55rem;
@@ -396,6 +399,10 @@ button {
 
 .provider-health-list li.is-online::before {
     background: var(--success);
+}
+
+.provider-metadata-list li::before {
+    background: var(--accent);
 }
 
 /* LT: Nustatymų formos laukai modaliniame lange. / EN: Settings form fields inside the modal window. */
