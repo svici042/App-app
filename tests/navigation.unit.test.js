@@ -10,6 +10,19 @@ import {
 
 const MAIN_SOURCE = new URL("../src/main.js", import.meta.url);
 
+/**
+ * Navigation unit tests.
+ *
+ * Covers pure route math, resilient route history parsing, and lightweight
+ * source-level GPX import/export contract checks.
+ */
+
+/**
+ * Sums route segment distances using the production distance helper.
+ *
+ * @param {{lat: number, lng: number}[]} points Route coordinates.
+ * @returns {number} Total route distance in kilometers.
+ */
 function totalRouteDistance(points) {
   let total = 0;
   for (let index = 0; index < points.length - 1; index++) {

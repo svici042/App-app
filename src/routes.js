@@ -1,4 +1,19 @@
-// LT: Haversine formulė skaičiuoja atstumą tarp dviejų koordinačių kilometrais. / EN: The Haversine formula calculates distance between two coordinates in kilometers.
+/**
+ * Navigation route calculations.
+ *
+ * Contains pure math/storage helpers used by route planning, GPX tests,
+ * heading calculations, and saved-route history.
+ */
+
+/**
+ * Calculates great-circle distance between two coordinates using Haversine.
+ *
+ * @param {number} lat1 Start latitude in degrees.
+ * @param {number} lng1 Start longitude in degrees.
+ * @param {number} lat2 End latitude in degrees.
+ * @param {number} lng2 End longitude in degrees.
+ * @returns {number} Distance in kilometers.
+ */
 export function distanceBetweenCoords(lat1, lng1, lat2, lng2) {
   const toRad = (angle) => (angle * Math.PI) / 180;
   const R = 6371;
@@ -14,7 +29,13 @@ export function distanceBetweenCoords(lat1, lng1, lat2, lng2) {
   return R * c;
 }
 
-// LT: Apskaičiuoja kryptį laipsniais nuo pirmo taško iki antro. / EN: Calculates bearing in degrees from the first point to the second.
+/**
+ * Calculates initial bearing from one point to another.
+ *
+ * @param {{lat: number, lng: number}} from Start coordinate.
+ * @param {{lat: number, lng: number}} to End coordinate.
+ * @returns {number} Bearing in degrees normalized to 0..359.
+ */
 export function bearingBetweenPoints(from, to) {
   const lat1 = (from.lat * Math.PI) / 180;
   const lat2 = (to.lat * Math.PI) / 180;
@@ -27,7 +48,15 @@ export function bearingBetweenPoints(from, to) {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-// LT: Saugiai perskaito maršrutų istoriją, net jei localStorage įrašas sugadintas. / EN: Safely reads route history even if the localStorage entry is corrupted.
+/**
+ * Reads saved route history from a storage-like object.
+ *
+ * Corrupted data is cleared so later route saves can recover cleanly.
+ *
+ * @param {{getItem: Function, removeItem: Function}} storage Storage adapter.
+ * @param {string} key Storage key.
+ * @returns {unknown[]} Parsed route history, or an empty list.
+ */
 export function readRouteHistory(storage, key) {
   try {
     const history = JSON.parse(storage.getItem(key) || "[]");

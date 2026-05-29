@@ -1,7 +1,9 @@
-/*
-    LT: Service worker saugo app failus ir jau matytas žemėlapio plyteles.
-    EN: The service worker caches app files and map tiles that have already been seen.
-*/
+/**
+ * Marine Navigator service worker.
+ *
+ * Pre-caches app shell assets, keeps a capped runtime cache for map tiles and
+ * other GET responses, and serves the latest cached app shell while offline.
+ */
 
 const CACHE_NAME = "marine-navigator-map-cache-v3";
 const RUNTIME_CACHE_NAME = "marine-navigator-runtime-cache-v2";
@@ -41,6 +43,14 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+/**
+ * Removes old runtime entries once the cache exceeds the configured limit.
+ *
+ * App shell files are preserved even when runtime map-tile entries are trimmed.
+ *
+ * @param {Cache} cache Runtime cache instance.
+ * @returns {Promise<void>}
+ */
 async function trimRuntimeCache(cache) {
   const requests = await cache.keys();
   const removable = requests.filter(
@@ -52,6 +62,16 @@ async function trimRuntimeCache(cache) {
   await Promise.all(removable.slice(0, overflow).map((request) => cache.delete(request)));
 }
 
+/**
+ * Stores a successful response in the runtime cache when the browser permits it.
+ *
+ * Some cross-origin opaque or partial responses cannot be cached safely; those
+ * failures are ignored because online map rendering should continue.
+ *
+ * @param {Request} request Original request.
+ * @param {Response} response Network response.
+ * @returns {Promise<void>}
+ */
 async function cacheResponse(request, response) {
   if (
     !response ||
@@ -66,10 +86,19 @@ async function cacheResponse(request, response) {
     await cache.put(request, response.clone());
     await trimRuntimeCache(cache);
   } catch (error) {
-    // LT: Kai kurie cross-origin atsakymai negali būti cache'inami. / EN: Some cross-origin responses cannot be cached.
+    // Some cross-origin responses cannot be cached; rendering should continue.
   }
 }
 
+/**
+ * Handles navigation requests with a network-first strategy.
+ *
+ * The latest HTML is saved when online and reused as the offline shell if the
+ * network is unavailable.
+ *
+ * @param {Request} request Navigation request.
+ * @returns {Promise<Response>} Network or cached app shell response.
+ */
 async function handleNavigation(request) {
   try {
     const response = await fetch(request);

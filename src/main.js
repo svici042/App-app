@@ -1,8 +1,10 @@
-/*
-    App logic / Programos logika
-    LT: čia vykdomi navigacijos žemėlapio sluoksniai, GPS vietos nustatymas, maršrutų planavimas ir išsaugoto vaizdo funkcijos.
-    EN: map layers, location updates, route planning, and saved map view tools are handled here.
-*/
+/**
+ * Marine Navigator application controller.
+ *
+ * Handles Leaflet map initialization, provider layers, GPS tracking, navigation
+ * modes, route planning, GPX import/export, offline map caching, depth queries,
+ * WMS synchronization, PWA install state, and Capacitor-specific native helpers.
+ */
 
 import "../vendor/leaflet/leaflet.js";
 import "../vendor/leaflet-rotate/leaflet-rotate-src.js";
@@ -33,7 +35,9 @@ import {
 } from "./offline.js";
 import { shareText, writeTextFile } from "./pwa.js";
 
-// LT: Saugo vartotojo GPS žymeklį, tikslumo apskritimą ir judėjimo istoriją. / EN: Stores the user's GPS marker, accuracy circle, and movement history.
+/**
+ * User-position state shared by GPS tracking, follow mode, and heading mode.
+ */
 const currentPosition = {
   marker: null,
   accuracyCircle: null,
@@ -41,7 +45,9 @@ const currentPosition = {
   positions: [],
 };
 
-// LT: Saugo rankiniu būdu sudėtus maršruto taškus ir juos jungiančią liniją. / EN: Stores manually added route waypoints and the line connecting them.
+/**
+ * Manually planned route state rendered as draggable Leaflet markers and a polyline.
+ */
 const routeState = {
   markers: [],
   line: null,
@@ -88,13 +94,17 @@ const contourLayerStatus = {
   lastUrl: "",
 };
 
-// LT: Matavimo režimas turi savo žymeklius ir liniją, kad nesimaišytų su maršrutu. / EN: Measurement mode has its own markers and line so it does not mix with the route.
+/**
+ * Temporary distance-measurement state kept separate from route planning.
+ */
 const measureState = {
   markers: [],
   line: null,
 };
 
-// LT: Kalba ir tema išsaugomos naršyklėje, kad perkrovus puslapį pasirinkimai liktų. / EN: Language and theme are saved in the browser so choices remain after reload.
+/**
+ * User preferences persisted in localStorage so reloads preserve the UI state.
+ */
 let lang = "lt";
 let theme = "dark";
 if (typeof window !== "undefined" && window.localStorage) {
@@ -114,9 +124,11 @@ if (typeof document !== "undefined") {
   document.documentElement.lang = lang;
 }
 
-// LT: Visi matomi UI tekstai laikomi vienoje vietoje, kad kalbos keitimas būtų paprastas. / EN: All visible UI strings are kept in one place to make language switching simple.
-
-// LT: Pakeičia GPS mygtuko būseną, kad vartotojas matytų, jog sekimas jau įjungtas. / EN: Updates the GPS button state so the user can see tracking is already active.
+/**
+ * Updates the GPS tracking button to reflect active/inactive watch state.
+ *
+ * @returns {void}
+ */
 function renderGpsButtonState() {
   const button = document.getElementById("gps-start");
   if (!button) return;
@@ -127,7 +139,11 @@ function renderGpsButtonState() {
   button.setAttribute("aria-pressed", String(isActive));
 }
 
-// LT: Parodo, ar kitas žemėlapio paspaudimas pridės maršruto tašką. / EN: Shows whether the next map click will add a route waypoint.
+/**
+ * Updates the waypoint-mode button used before the next map click adds a route point.
+ *
+ * @returns {void}
+ */
 function renderWaypointButtonState() {
   const button = document.getElementById("waypoint-mode-btn");
   if (!button) return;
@@ -139,7 +155,11 @@ function renderWaypointButtonState() {
   button.setAttribute("aria-pressed", String(waypointMode));
 }
 
-// LT: Rodo, ar aktyvus greito atstumo matavimo režimas. / EN: Shows whether quick distance measurement mode is active.
+/**
+ * Updates the measurement-mode button state.
+ *
+ * @returns {void}
+ */
 function renderMeasureButtonState() {
   const button = document.getElementById("measure-mode-btn");
   if (!button) return;
@@ -149,7 +169,11 @@ function renderMeasureButtonState() {
   button.setAttribute("aria-pressed", String(measureMode));
 }
 
-// LT: PWA statusas pasako, ar appą galima įdiegti ir naudoti per service worker. / EN: PWA status tells whether the app can be installed and served by the service worker.
+/**
+ * Renders whether the app can be installed or served through a service worker.
+ *
+ * @returns {void}
+ */
 function renderPwaStatus() {
   const status = document.getElementById("pwa-status");
   if (!status) return;
@@ -170,20 +194,43 @@ function renderPwaStatus() {
   }
 }
 
-// LT: Atnaujina temos atributą ant <html> ir pakeičia temos mygtuko tekstą. / EN: Updates the theme attribute on <html> and changes the theme button text.
+/**
+ * Applies the current theme to the document and theme toggle.
+ *
+ * @returns {void}
+ */
 function renderTheme() {
   document.documentElement.dataset.theme = theme;
   setText("theme-toggle", theme === "dark" ? TEXT[lang].themeLight : TEXT[lang].themeDark);
 }
 
+/**
+ * Detects whether responsive drawer behavior should be used.
+ *
+ * @returns {boolean} True for mobile/tablet layout widths.
+ */
 function isMobileLayout() {
   return Boolean(mobileLayoutQuery?.matches);
 }
 
+/**
+ * Lets Leaflet recalculate size after animated panel/drawer layout changes.
+ *
+ * @returns {void}
+ */
 function invalidateMapAfterLayoutChange() {
   window.setTimeout(() => map.invalidateSize(), 260);
 }
 
+/**
+ * Collapses or opens the sidebar while preserving focus and mobile drawer state.
+ *
+ * Mobile behavior is intentionally different: the sidebar becomes a slide-in
+ * drawer and an outside backdrop can close it.
+ *
+ * @param {boolean} collapsed Whether the sidebar should be collapsed.
+ * @returns {void}
+ */
 function setSidebarCollapsed(collapsed) {
   const sidebar = document.getElementById("app-sidebar");
   const openButton = document.getElementById("open-sidebar");
@@ -228,19 +275,40 @@ function setSidebarCollapsed(collapsed) {
   invalidateMapAfterLayoutChange();
 }
 
+/**
+ * Opens the responsive sidebar or mobile drawer.
+ *
+ * @returns {void}
+ */
 function openSidebar() {
   setSidebarCollapsed(false);
 }
 
+/**
+ * Closes any modal menu and collapses the sidebar.
+ *
+ * @returns {void}
+ */
 function collapseSidebar() {
   closeMenu();
   setSidebarCollapsed(true);
 }
 
+/**
+ * Applies the correct initial sidebar state for the current viewport width.
+ *
+ * @returns {void}
+ */
 function renderResponsiveSidebarState() {
   setSidebarCollapsed(isMobileLayout());
 }
 
+/**
+ * Collapses the depth diagnostics panel into a compact status chip.
+ *
+ * @param {boolean} collapsed Whether diagnostics should be collapsed.
+ * @returns {void}
+ */
 function setDepthPanelCollapsed(collapsed) {
   const toggleButton = document.getElementById("toggle-depth-panel");
   const chip = document.getElementById("depth-chip");
@@ -267,10 +335,21 @@ function setDepthPanelCollapsed(collapsed) {
   }
 }
 
+/**
+ * Toggles the depth diagnostics panel.
+ *
+ * @returns {void}
+ */
 function toggleDepthPanel() {
   setDepthPanelCollapsed(!depthPanelCollapsed);
 }
 
+/**
+ * Collapses or expands the depth legend to keep the map-first layout clear.
+ *
+ * @param {boolean} collapsed Whether the legend details should be hidden.
+ * @returns {void}
+ */
 function setDepthLegendCollapsed(collapsed) {
   const toggleButton = document.getElementById("toggle-depth-legend");
   const t = TEXT[lang] || TEXT.lt;
@@ -287,11 +366,23 @@ function setDepthLegendCollapsed(collapsed) {
   }
 }
 
+/**
+ * Toggles the compact depth legend.
+ *
+ * @returns {void}
+ */
 function toggleDepthLegend() {
   setDepthLegendCollapsed(!depthLegendCollapsed);
 }
 
-// LT: Perrašo visus matomus tekstus pagal pasirinktą kalbą. / EN: Rewrites all visible text based on the selected language.
+/**
+ * Rewrites visible UI text for the active language and re-renders dependent UI.
+ *
+ * This is intentionally broad because language changes affect Leaflet controls,
+ * panels, status text, and route/offline summaries at the same time.
+ *
+ * @returns {void}
+ */
 function renderAllTexts() {
   const t = TEXT[lang];
   const navButtons = document.querySelectorAll(".nav-tabs button");
@@ -393,7 +484,9 @@ const boatSettings = {
   units: "metric",
 };
 
-// LT: Pagrindinis Leaflet žemėlapis. / EN: Main Leaflet map.
+/**
+ * Main Leaflet map instance for all navigation, rotation, and layer operations.
+ */
 const map = createMap(L, "map");
 createMapPanes(map);
 if (typeof window !== "undefined") {
@@ -411,7 +504,12 @@ if (typeof window !== "undefined") {
   };
 }
 
-// LT: Baziniai žemėlapio sluoksniai, kuriuos galima pasirinkti dešinėje valdiklyje. / EN: Base map layers selectable from the control on the right.
+/**
+ * Base map layers exposed through the Leaflet layer control.
+ *
+ * Provider metadata lives in `src/config.js`; these tile layers only bind the
+ * current URLs and attribution to Leaflet.
+ */
 const baseLayers = {
   Default: L.tileLayer(TILE_SOURCES.Default, {
     attribution: PROVIDERS.openstreetmap.attribution,
@@ -424,7 +522,12 @@ const baseLayers = {
   }),
 };
 
-// LT: Realūs batimetrijos sluoksniai iš EMODnet ir GEBCO WMS servisų. / EN: Real bathymetry layers from EMODnet and GEBCO WMS services.
+/**
+ * Depth soundings raster overlay from EMODnet.
+ *
+ * This layer is optional because it can obscure the map; numeric point depth is
+ * still queried through the EMODnet REST endpoint on tap/click.
+ */
 const depthLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: primaryDepthSource.layers.soundings,
   format: "image/png",
@@ -442,6 +545,10 @@ const depthLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   attribution: PROVIDERS.emodnetBathymetry.attribution,
   className: "depth-tile",
 });
+
+/**
+ * EMODnet contour/isobath overlay enabled by default where provider tiles render.
+ */
 const contourLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: primaryDepthSource.layers.contours,
   format: "image/png",
@@ -459,6 +566,10 @@ const contourLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   attribution: PROVIDERS.emodnetBathymetry.attribution,
   className: "contour-tile",
 });
+
+/**
+ * EMODnet source-reference overlay used to show survey/source context.
+ */
 const sonarLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: "emodnet:source_references",
   format: "image/png",
@@ -474,6 +585,13 @@ const sonarLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   keepBuffer: 1,
   attribution: PROVIDERS.emodnetBathymetry.attribution,
 });
+
+/**
+ * Optional GEBCO visual relief layer.
+ *
+ * This is approximate seabed relief only and must not be presented as numeric
+ * soundings or certified navigation data.
+ */
 const reliefLayer = L.tileLayer.wms(WMS_SOURCES.gebco, {
   layers: fallbackDepthSource.layers.relief,
   format: "image/png",
@@ -502,13 +620,23 @@ if (typeof window !== "undefined" && window.__marineNavigator) {
 
 baseLayers.Default.addTo(map);
 
-// LT: WMS klaidos dažniausiai reiškia ryšio arba išorinio serviso problemą, todėl vartotojui rodome vieną aiškią žinutę. / EN: WMS errors usually mean a network or external service issue, so the user gets one clear message.
+/**
+ * Shows one visible warning when an external map or WMS layer fails.
+ *
+ * @returns {void}
+ */
 function reportLayerLoadError() {
   if (layerErrorShown) return;
   layerErrorShown = true;
   setText("map-footer", TEXT[lang].layerLoadError);
 }
 
+/**
+ * Parses stored offline area bounds from `west,south,east,north` string form.
+ *
+ * @param {string} boundsValue Serialized bounds.
+ * @returns {{west: number, south: number, east: number, north: number}|null} Parsed bounds.
+ */
 function parseOfflineBounds(boundsValue) {
   if (typeof boundsValue !== "string") return null;
   const parts = boundsValue.split(",").map(Number);
@@ -517,6 +645,11 @@ function parseOfflineBounds(boundsValue) {
   return { west, south, east, north };
 }
 
+/**
+ * Finds the saved offline area containing the current map center.
+ *
+ * @returns {object|undefined} Matching offline area metadata.
+ */
 function getOfflineAreaForCurrentView() {
   const center = map.getCenter();
   return readOfflineAreas().find((area) => {
@@ -531,6 +664,11 @@ function getOfflineAreaForCurrentView() {
   });
 }
 
+/**
+ * Computes the detailed depth status text shown in the diagnostics panel.
+ *
+ * @returns {string} Localized status text.
+ */
 function getDepthStatusText() {
   const t = TEXT[lang] || TEXT.lt;
 
@@ -547,6 +685,11 @@ function getDepthStatusText() {
   return t.depthStatusUnknownQuality;
 }
 
+/**
+ * Computes the compact depth chip label.
+ *
+ * @returns {string} Localized chip text.
+ */
 function getDepthChipText() {
   const t = TEXT[lang] || TEXT.lt;
 
@@ -559,6 +702,11 @@ function getDepthChipText() {
   return contourLayerStatus.loaded ? t.depthStatusOnline : t.depthStatusUnavailable;
 }
 
+/**
+ * Checks whether the active zoom is outside the depth layer's configured range.
+ *
+ * @returns {boolean} True when the depth overlay should be treated as hidden by zoom.
+ */
 function isDepthLayerHiddenAtCurrentZoom() {
   const zoom = map.getZoom();
   const minZoom = depthLayer.options.minZoom;
@@ -569,6 +717,11 @@ function isDepthLayerHiddenAtCurrentZoom() {
   );
 }
 
+/**
+ * Selects the user-facing diagnostic message for depth overlay availability.
+ *
+ * @returns {string} Localized diagnostic text.
+ */
 function getDepthLayerDiagnosticMessage() {
   const t = TEXT[lang] || TEXT.lt;
 
@@ -581,6 +734,11 @@ function getDepthLayerDiagnosticMessage() {
   return t.depthLayerHiddenAtZoom;
 }
 
+/**
+ * Converts the latest WMS tile request state into localized diagnostics text.
+ *
+ * @returns {string} Localized request status.
+ */
 function getDepthRequestText() {
   const t = TEXT[lang] || TEXT.lt;
   if (contourLayerStatus.requestState === "succeeded") return t.depthRequestSucceeded;
@@ -588,17 +746,32 @@ function getDepthRequestText() {
   return t.depthRequestPending;
 }
 
+/**
+ * Formats current map center coordinates for the debug panel.
+ *
+ * @returns {string} Latitude and longitude with fixed precision.
+ */
 function getDepthCenterText() {
   const center = map.getCenter();
   return `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}`;
 }
 
+/**
+ * Checks whether any WMS bathymetry-related overlay is currently on the map.
+ *
+ * @returns {boolean} True when redraw synchronization is needed.
+ */
 function hasActiveWmsBathymetryOverlays() {
   return [depthLayer, contourLayer, sonarLayer, reliefLayer].some((layer) =>
     map.hasLayer(layer),
   );
 }
 
+/**
+ * Renders continuous depth overlay status, numeric-depth guidance, and debug text.
+ *
+ * @returns {void}
+ */
 function renderDepthStatus() {
   setText("depth-chip", getDepthChipText());
   setText("depth-status", getDepthStatusText());
@@ -623,6 +796,13 @@ function renderDepthStatus() {
   );
 }
 
+/**
+ * Renders primary/fallback/3D depth-source status controls.
+ *
+ * Experimental 3D is deliberately hidden until a real renderer exists.
+ *
+ * @returns {void}
+ */
 function renderDepthSourceStatus() {
   const t = TEXT[lang] || TEXT.lt;
   const fallbackButton = document.getElementById("use-fallback-depth");
@@ -641,7 +821,8 @@ function renderDepthSourceStatus() {
   setText("use-fallback-depth", t.useFallbackBathymetry);
   setText("experimental-3d-toggle", t.experimental3dSeabed);
   if (experimental3dButton) {
-    // TODO: Re-enable only when a real 3D seabed renderer is implemented.
+    // TODO:
+    // Experimental 3D bathymetry is not implemented yet.
     experimental3dButton.hidden = true;
     experimental3dButton.disabled = true;
   }
@@ -650,6 +831,11 @@ function renderDepthSourceStatus() {
   }
 }
 
+/**
+ * Renders the provider registry into the charts/status panel.
+ *
+ * @returns {void}
+ */
 function renderProviderMetadata() {
   const list = document.getElementById("provider-metadata-list");
   if (!list) return;
@@ -665,6 +851,14 @@ function renderProviderMetadata() {
   });
 }
 
+/**
+ * Renders one provider metadata definition list.
+ *
+ * @param {string} elementId Target element id.
+ * @param {string} roleLabel Human-readable role label.
+ * @param {object} provider Provider registry entry.
+ * @returns {void}
+ */
 function renderProviderDefinitionList(elementId, roleLabel, provider) {
   const element = document.getElementById(elementId);
   if (!element) return;
@@ -687,6 +881,11 @@ function renderProviderDefinitionList(elementId, roleLabel, provider) {
   });
 }
 
+/**
+ * Renders the compact data-source panel for active depth and relief providers.
+ *
+ * @returns {void}
+ */
 function renderDataSourcePanel() {
   const t = TEXT[lang] || TEXT.lt;
   renderProviderDefinitionList(
@@ -701,6 +900,13 @@ function renderDataSourcePanel() {
   );
 }
 
+/**
+ * Enables the optional GEBCO visual relief overlay after explicit user action.
+ *
+ * This is visual-only relief, not numeric depth data and not a 3D renderer.
+ *
+ * @returns {void}
+ */
 function useFallbackBathymetry() {
   const t = TEXT[lang] || TEXT.lt;
   if (!fallbackDepthStatus.available) {
@@ -715,16 +921,34 @@ function useFallbackBathymetry() {
   setText("fallback-depth-status", t.fallbackBathymetryEnabled);
 }
 
+/**
+ * Extracts the actual WMS tile URL from a Leaflet tile event.
+ *
+ * @param {object} event Leaflet tile event.
+ * @returns {string} Tile URL when available.
+ */
 function getTileUrl(event) {
   return event?.tile?.currentSrc || event?.tile?.src || "";
 }
 
+/**
+ * Logs WMS tile URLs during development without exposing them in production UI.
+ *
+ * @param {string} url Tile URL.
+ * @returns {void}
+ */
 function logDepthTileUrl(url) {
   if (import.meta.env.DEV && url) {
     console.debug("Depth WMS tile URL:", url);
   }
 }
 
+/**
+ * Attempts to resolve the HTTP status for a failed WMS tile request.
+ *
+ * @param {string} url Tile URL.
+ * @returns {Promise<string>} Human-readable HTTP status.
+ */
 async function resolveDepthHttpStatus(url) {
   if (!url) return "status unavailable";
   try {
@@ -735,6 +959,13 @@ async function resolveDepthHttpStatus(url) {
   }
 }
 
+/**
+ * Updates WMS status after a successful tile load.
+ *
+ * @param {object} status Mutable status object for the layer.
+ * @param {object} event Leaflet tile event.
+ * @returns {void}
+ */
 function reportWmsLayerLoaded(status, event) {
   const url = getTileUrl(event);
   logDepthTileUrl(url);
@@ -746,6 +977,13 @@ function reportWmsLayerLoaded(status, event) {
   renderDepthStatus();
 }
 
+/**
+ * Updates WMS status after a tile load error and shows a visible warning.
+ *
+ * @param {object} status Mutable status object for the layer.
+ * @param {object} event Leaflet tile event.
+ * @returns {void}
+ */
 function reportWmsLayerLoadError(status, event) {
   const url = getTileUrl(event);
   logDepthTileUrl(url);
@@ -794,7 +1032,11 @@ reliefLayer.on("remove", () => {
 contourLayer.addTo(map);
 sonarLayer.addTo(map);
 
-// LT: Perkuria Leaflet sluoksnių valdiklį, kad jo pavadinimai pasikeistų keičiant kalbą. / EN: Rebuilds the Leaflet layer control so labels update when the language changes.
+/**
+ * Rebuilds the Leaflet layer control so labels match the active language.
+ *
+ * @returns {void}
+ */
 function renderLayerControl() {
   const t = TEXT[lang] || TEXT.lt;
 
@@ -827,12 +1069,25 @@ map.on("baselayerchange", (event) => {
   renderOfflineEstimate();
 });
 
+/**
+ * Redraws only WMS overlays currently present on the map.
+ *
+ * @returns {void}
+ */
 function redrawVisibleWmsOverlays() {
   [depthLayer, contourLayer, sonarLayer, reliefLayer].forEach((layer) => {
     if (map.hasLayer(layer)) layer.redraw();
   });
 }
 
+/**
+ * Debounces WMS redraws during zoom, pan, and rotate gestures.
+ *
+ * This reduces Android flicker while preserving the rotation-safe pane setup.
+ *
+ * @param {number} [delay=120] Delay in milliseconds before redraw.
+ * @returns {void}
+ */
 function scheduleWmsOverlayRedraw(delay = 120) {
   window.clearTimeout(wmsRedrawTimer);
   wmsRedrawTimer = window.setTimeout(() => {
@@ -842,6 +1097,14 @@ function scheduleWmsOverlayRedraw(delay = 120) {
   }, delay);
 }
 
+/**
+ * Keeps custom WMS pane transforms delegated to the shared Leaflet tile pane.
+ *
+ * The WMS panes are children of `tilePane`; clearing local transforms prevents
+ * them from rotating independently from the base map.
+ *
+ * @returns {void}
+ */
 function syncWmsPaneTransform() {
   ["reliefPane", "depthPane", "contourPane", "sonarPane"].forEach((paneName) => {
     const pane = map.getPane(paneName);
@@ -851,10 +1114,24 @@ function syncWmsPaneTransform() {
   });
 }
 
+/**
+ * Toggles a CSS state used while WMS tiles settle during gestures.
+ *
+ * @param {boolean} isUpdating Whether a WMS gesture/update is in progress.
+ * @returns {void}
+ */
 function setWmsOverlayUpdating(isUpdating) {
   document.body.classList.toggle("wms-overlays-updating", isUpdating);
 }
 
+/**
+ * Finishes a map gesture and schedules a stable WMS redraw.
+ *
+ * Also records the gesture end time so synthetic mobile click events do not
+ * accidentally trigger depth queries immediately after pinch/drag gestures.
+ *
+ * @returns {void}
+ */
 function finishWmsOverlayUpdate() {
   mapGestureActive = false;
   lastMapGestureEndedAt = Date.now();
@@ -882,7 +1159,14 @@ map.on("rotate", () => {
 
 L.control.zoom({ position: "bottomright" }).addTo(map);
 
-// LT: Parenka kryptį pagal GPS kursą, paskutinį GPS judėjimą arba maršruto segmentą. / EN: Picks heading from GPS course, latest GPS movement, or route segment.
+/**
+ * Resolves the best available heading for heading-up and follow modes.
+ *
+ * Preference order is native GPS/course heading, inferred movement bearing,
+ * then the latest route segment bearing.
+ *
+ * @returns {number} Bearing in degrees.
+ */
 function getActiveHeading() {
   const lastGpsPosition = currentPosition.positions[currentPosition.positions.length - 1];
   const lastGpsHeading = lastGpsPosition?.[2];
@@ -912,7 +1196,14 @@ function getActiveHeading() {
   return 0;
 }
 
-// LT: Atnaujina žemėlapio orientaciją: šiaurė viršuje arba maršruto kryptis viršuje. / EN: Updates map orientation: north-up or route-heading-up.
+/**
+ * Applies the selected navigation orientation mode to the map.
+ *
+ * North-up forces bearing 0. Heading-up and follow use the active GPS/course
+ * heading when available, while preserving the WMS pane synchronization.
+ *
+ * @returns {void}
+ */
 function applyMapOrientation() {
   const t = TEXT[lang] || TEXT.lt;
   const targetBearing = orientationMode === "heading" || orientationMode === "follow"
@@ -929,7 +1220,11 @@ function applyMapOrientation() {
   renderOrientationButton();
 }
 
-// LT: Rodo dabartinį orientacijos režimą mažame žemėlapio mygtuke. / EN: Shows the current orientation mode in the small map button.
+/**
+ * Renders North, Heading, and Follow mode buttons.
+ *
+ * @returns {void}
+ */
 function renderOrientationButton() {
   const northButton = document.getElementById("orientation-toggle");
   const headingButton = document.getElementById("heading-toggle");
@@ -954,7 +1249,15 @@ function renderOrientationButton() {
   }
 }
 
-// LT: Užklausia tikrą EMODnet gylį pasirinktame taške. / EN: Requests a real EMODnet depth sample at the selected point.
+/**
+ * Requests an EMODnet numeric depth sample for a clicked map point.
+ *
+ * The same-origin proxy is preferred for CORS/cache control; a direct EMODnet
+ * request is attempted only when the proxy fetch itself fails.
+ *
+ * @param {{lat: number, lng: number}} latlng Leaflet coordinate.
+ * @returns {Promise<object>} EMODnet depth sample payload.
+ */
 async function fetchDepthSample(latlng) {
   const proxyUrl = `${PROXY_BASE_URL}/depth?lat=${encodeURIComponent(latlng.lat)}&lng=${encodeURIComponent(latlng.lng)}`;
   const directGeom = `POINT(${latlng.lng} ${latlng.lat})`;
@@ -974,7 +1277,15 @@ async function fetchDepthSample(latlng) {
   return response.json();
 }
 
-// LT: Parodo realų gylį paspaustame žemėlapio taške. / EN: Shows the real depth at the clicked map point.
+/**
+ * Shows the numeric depth popup for a map click/tap.
+ *
+ * A monotonically increasing query id prevents slow older responses from
+ * overwriting the latest tap result on mobile.
+ *
+ * @param {{latlng: {lat: number, lng: number}}} event Leaflet click event.
+ * @returns {Promise<void>}
+ */
 async function showDepthAtPoint(event) {
   const t = TEXT[lang] || TEXT.lt;
   const queryId = ++depthQuerySequence;
@@ -1004,13 +1315,34 @@ async function showDepthAtPoint(event) {
   }
 }
 
+/**
+ * Guards depth queries against drag/pinch gesture click leakage.
+ *
+ * Android browsers can fire click-like events after map gestures; this check
+ * keeps one intentional tap mapped to one depth query.
+ *
+ * @param {object} event Leaflet click event.
+ * @returns {boolean} True when the click should not query depth.
+ */
 function shouldIgnoreDepthMapClick(event) {
   if (mapGestureActive) return true;
   if (Date.now() - lastMapGestureEndedAt < 250) return true;
   return Boolean(event?.originalEvent?.defaultPrevented);
 }
 
-// LT: Atnaujina GPS žymeklį žemėlapyje ir nubrėžia vartotojo judėjimo taką. / EN: Updates the GPS marker on the map and draws the user's movement track.
+/**
+ * Updates the GPS marker, accuracy circle, track line, and navigation mode state.
+ *
+ * Follow mode recenters the map after each fix. Heading-up and follow both apply
+ * the latest heading/course to the map bearing when possible.
+ *
+ * @param {number} lat Latitude.
+ * @param {number} lng Longitude.
+ * @param {number} accuracy Accuracy radius in meters.
+ * @param {number|null} [speed=null] Speed in meters per second.
+ * @param {number|null} [heading=null] Course/heading in degrees.
+ * @returns {void}
+ */
 function updatePositionMarker(lat, lng, accuracy, speed = null, heading = null) {
   if (!currentPosition.marker) {
     currentPosition.marker = L.circleMarker([lat, lng], {
@@ -1058,7 +1390,12 @@ function updatePositionMarker(lat, lng, accuracy, speed = null, heading = null) 
   applyMapOrientation();
 }
 
-// LT: Parodo instrukciją, kai vartotojas įjungia maršruto taško pridėjimo režimą. / EN: Shows instructions when waypoint placement mode is enabled.
+/**
+ * Shows or clears the waypoint-placement hint.
+ *
+ * @param {boolean} isOn Whether waypoint placement mode is active.
+ * @returns {void}
+ */
 function updateWaypointModeUI(isOn) {
   const t = TEXT[lang] || TEXT.lt;
   const gpsStatus = document.getElementById("gps-status");
@@ -1077,7 +1414,14 @@ function updateWaypointModeUI(isOn) {
   renderWaypointButtonState();
 }
 
-// LT: Paleidžia naršyklės geolokaciją ir perduoda gautas koordinates žemėlapiui. / EN: Starts browser geolocation and passes received coordinates to the map.
+/**
+ * Starts GPS tracking with native and browser geolocation paths.
+ *
+ * Capacitor can provide an immediate native position on Android/iOS, while
+ * `navigator.geolocation.watchPosition` keeps the live track updated.
+ *
+ * @returns {void}
+ */
 function geolocate() {
   if (gpsWatchId !== null) {
     document.getElementById("gps-status").textContent = TEXT[lang].gpsAlreadyActive;
@@ -1139,7 +1483,11 @@ function geolocate() {
   }
 }
 
-// LT: Sustabdo GPS sekimą, bet palieka paskutinį žymeklį žemėlapyje. / EN: Stops GPS tracking while keeping the last marker on the map.
+/**
+ * Stops live GPS tracking while leaving the last known position on the map.
+ *
+ * @returns {void}
+ */
 function stopGps() {
   if (gpsWatchId === null) {
     renderGpsButtonState();
@@ -1152,7 +1500,11 @@ function stopGps() {
   renderGpsButtonState();
 }
 
-// LT: Perskaito laivo nustatymus iš formos laukų ir atnaujina santrauką. / EN: Reads boat settings from form fields and updates the summary.
+/**
+ * Reads boat settings from form controls and refreshes derived estimates.
+ *
+ * @returns {void}
+ */
 function setBoatSettingsFromUI() {
   boatSettings.length = Number(document.getElementById("boat-length").value);
   boatSettings.speed = Number(document.getElementById("boat-speed").value);
@@ -1164,7 +1516,11 @@ function setBoatSettingsFromUI() {
   renderBoatPreview();
 }
 
-// LT: Parodo apytikslę ridą pagal greitį, kuro sąnaudas ir pasirinktus vienetus. / EN: Shows estimated range based on speed, fuel use, and selected units.
+/**
+ * Renders simple planning estimates from speed, consumption, and unit settings.
+ *
+ * @returns {void}
+ */
 function renderBoatPreview() {
   const t = TEXT[lang] || TEXT.lt;
   const speed = boatSettings.speed;
@@ -1177,7 +1533,12 @@ function renderBoatPreview() {
     t.boatRange(range, labelUnit);
 }
 
-// LT: Prideda naują tempiamą maršruto tašką paspaustoje žemėlapio vietoje. / EN: Adds a new draggable route waypoint at the clicked map location.
+/**
+ * Adds a draggable route waypoint at the clicked map location.
+ *
+ * @param {{latlng: {lat: number, lng: number}}} event Leaflet click-like event.
+ * @returns {void}
+ */
 function addRoutePoint(event) {
   const position = event.latlng;
   const marker = L.marker(position, {
@@ -1190,7 +1551,12 @@ function addRoutePoint(event) {
   refreshRoute();
 }
 
-// LT: Ištrina vieną maršruto tašką pagal jo numerį sąraše. / EN: Deletes one route waypoint by its list index.
+/**
+ * Deletes a route waypoint by list index.
+ *
+ * @param {number} index Route marker index.
+ * @returns {void}
+ */
 function deleteRoutePoint(index) {
   const marker = routeState.markers[index];
   if (!marker) return;
@@ -1200,7 +1566,11 @@ function deleteRoutePoint(index) {
   refreshRoute();
 }
 
-// LT: Perpiešia maršruto taškų sąrašą modaliniame navigacijos lange. / EN: Renders the route waypoint list in the navigation modal.
+/**
+ * Renders the route waypoint list in the navigation panel.
+ *
+ * @returns {void}
+ */
 function renderWaypointList() {
   const list = document.getElementById("waypoint-list");
   if (!list) return;
@@ -1233,7 +1603,13 @@ function renderWaypointList() {
   });
 }
 
-// LT: Perbraižo maršruto liniją ir perskaičiuoja bendrą maršruto ilgį. / EN: Redraws the route line and recalculates total route distance.
+/**
+ * Rebuilds the route polyline and recalculates total route distance.
+ *
+ * Route distance is the sum of Haversine segment distances between waypoints.
+ *
+ * @returns {void}
+ */
 function refreshRoute() {
   const positions = routeState.markers.map((marker) => marker.getLatLng());
   if (routeState.line) {
@@ -1269,7 +1645,11 @@ function refreshRoute() {
   applyMapOrientation();
 }
 
-// LT: Pašalina visus maršruto taškus ir liniją iš žemėlapio. / EN: Removes all route waypoints and the route line from the map.
+/**
+ * Removes all route waypoints and the route line from the map.
+ *
+ * @returns {void}
+ */
 function clearRoute() {
   routeState.markers.forEach((marker) => map.removeLayer(marker));
   routeState.markers = [];
@@ -1282,7 +1662,11 @@ function clearRoute() {
   applyMapOrientation();
 }
 
-// LT: Grąžina maršruto taškus paprastu JSON formatu istorijai ir GPX eksportui. / EN: Returns route waypoints as plain JSON for history and GPX export.
+/**
+ * Returns route waypoints as plain JSON for history and GPX export.
+ *
+ * @returns {{lat: number, lng: number}[]} Route coordinates.
+ */
 function getRoutePositions() {
   return routeState.markers.map((marker) => {
     const position = marker.getLatLng();
@@ -1290,7 +1674,12 @@ function getRoutePositions() {
   });
 }
 
-// LT: Atkuria maršrutą iš koordinačių sąrašo. / EN: Restores a route from a list of coordinates.
+/**
+ * Restores a route from coordinate objects.
+ *
+ * @param {{lat: number, lng: number}[]} positions Route coordinates.
+ * @returns {void}
+ */
 function setRouteFromPositions(positions) {
   clearRoute();
   positions.forEach((position) => {
@@ -1299,7 +1688,14 @@ function setRouteFromPositions(positions) {
   refreshRoute();
 }
 
-// LT: GPX eksportas leidžia maršrutą perkelti į kitus navigacijos įrankius. / EN: GPX export lets the route move into other navigation tools.
+/**
+ * Exports the current route as GPX 1.1 route points.
+ *
+ * Capacitor builds also attempt to write the file to the native Documents
+ * directory before triggering the browser download path.
+ *
+ * @returns {Promise<void>}
+ */
 async function exportRouteGpx() {
   const positions = getRoutePositions();
   if (positions.length === 0) {
@@ -1329,7 +1725,12 @@ ${points}
   URL.revokeObjectURL(link.href);
 }
 
-// LT: GPX importas palaiko rtept, trkpt ir wpt taškus. / EN: GPX import supports rtept, trkpt, and wpt points.
+/**
+ * Imports route, track, or waypoint coordinates from a GPX file input.
+ *
+ * @param {Event} event File input change event.
+ * @returns {Promise<void>}
+ */
 async function importRouteGpx(event) {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -1357,7 +1758,11 @@ async function importRouteGpx(event) {
   }
 }
 
-// LT: Išsaugo paskutinius maršrutus naršyklėje, kad jie liktų ir po perkrovimo. / EN: Saves recent routes in the browser so they remain after reload.
+/**
+ * Saves the current route to local history, capped to the latest ten entries.
+ *
+ * @returns {void}
+ */
 function saveRouteToHistory() {
   const positions = getRoutePositions();
   if (positions.length === 0) return;
@@ -1373,12 +1778,20 @@ function saveRouteToHistory() {
   renderRouteHistory();
 }
 
-// LT: Saugiai perskaito maršrutų istoriją, net jei localStorage įrašas sugadintas. / EN: Safely reads route history even if the localStorage entry is corrupted.
+/**
+ * Reads saved route history through the shared resilient storage helper.
+ *
+ * @returns {unknown[]} Saved route history.
+ */
 function readRouteHistory() {
   return readRouteHistoryFromStorage(localStorage, ROUTE_HISTORY_KEY);
 }
 
-// LT: Perpiešia išsaugotų maršrutų pasirinkimą. / EN: Renders the saved route selector.
+/**
+ * Renders the saved route selector.
+ *
+ * @returns {void}
+ */
 function renderRouteHistory() {
   const select = document.getElementById("route-history");
   if (!select) return;
@@ -1399,7 +1812,12 @@ function renderRouteHistory() {
   });
 }
 
-// LT: Įkelia pasirinktą išsaugotą maršrutą. / EN: Loads the selected saved route.
+/**
+ * Loads the route selected in the saved-route dropdown.
+ *
+ * @param {Event} event Select change event.
+ * @returns {void}
+ */
 function loadRouteFromHistory(event) {
   const routeId = Number(event.target.value);
   if (!routeId) return;
@@ -1409,7 +1827,11 @@ function loadRouteFromHistory(event) {
   if (route) setRouteFromPositions(route.positions);
 }
 
-// LT: Išvalo matavimo žymeklius ir liniją. / EN: Clears measurement markers and line.
+/**
+ * Clears temporary measurement markers and line.
+ *
+ * @returns {void}
+ */
 function clearMeasurement() {
   measureState.markers.forEach((marker) => map.removeLayer(marker));
   measureState.markers = [];
@@ -1419,7 +1841,14 @@ function clearMeasurement() {
   }
 }
 
-// LT: Prideda tašką greitam atstumo matavimui. / EN: Adds a point for quick distance measurement.
+/**
+ * Adds a point to the quick distance-measurement tool.
+ *
+ * Two points produce a line and a Haversine distance readout.
+ *
+ * @param {{latlng: {lat: number, lng: number}}} event Leaflet click event.
+ * @returns {void}
+ */
 function addMeasurementPoint(event) {
   if (measureState.markers.length >= 2) clearMeasurement();
 
@@ -1444,7 +1873,11 @@ function addMeasurementPoint(event) {
   }
 }
 
-// LT: Pažymi žmogaus už borto / SOS tašką pagal GPS arba žemėlapio centrą. / EN: Marks a man-overboard / SOS point from GPS or map center.
+/**
+ * Marks a man-overboard/SOS point from the latest GPS fix or map center.
+ *
+ * @returns {Promise<void>}
+ */
 async function markMobPoint() {
   const lastPosition = currentPosition.positions[currentPosition.positions.length - 1];
   const position = lastPosition
@@ -1461,7 +1894,11 @@ async function markMobPoint() {
   );
 }
 
-// LT: Į Cache API įrašo šiuo metu matomas Leaflet plyteles. / EN: Stores currently visible Leaflet tiles in the Cache API.
+/**
+ * Stores currently visible Leaflet tile images in the Cache API.
+ *
+ * @returns {Promise<number>} Number of successfully cached visible tiles.
+ */
 async function cacheVisibleTiles() {
   if (!("caches" in window)) return 0;
 
@@ -1489,6 +1926,11 @@ async function cacheVisibleTiles() {
     .length;
 }
 
+/**
+ * Reads saved offline-region metadata from localStorage.
+ *
+ * @returns {object[]} Saved offline areas.
+ */
 function readOfflineAreas() {
   try {
     const areas = JSON.parse(localStorage.getItem(OFFLINE_AREAS_KEY) || "[]");
@@ -1499,10 +1941,22 @@ function readOfflineAreas() {
   }
 }
 
+/**
+ * Persists offline-region metadata.
+ *
+ * @param {object[]} areas Offline area records.
+ * @returns {void}
+ */
 function saveOfflineAreas(areas) {
   localStorage.setItem(OFFLINE_AREAS_KEY, JSON.stringify(areas));
 }
 
+/**
+ * Formats timestamps using the active UI language.
+ *
+ * @param {number} timestamp Milliseconds since epoch.
+ * @returns {string} Localized date/time.
+ */
 function formatDateTime(timestamp) {
   return new Intl.DateTimeFormat(lang === "lt" ? "lt-LT" : "en", {
     dateStyle: "short",
@@ -1510,6 +1964,11 @@ function formatDateTime(timestamp) {
   }).format(new Date(timestamp));
 }
 
+/**
+ * Returns the selected offline region, or the first saved region as fallback.
+ *
+ * @returns {object|null} Offline area metadata.
+ */
 function getSelectedOfflineArea() {
   const select = document.getElementById("offline-area-list");
   const areas = readOfflineAreas();
@@ -1517,6 +1976,11 @@ function getSelectedOfflineArea() {
   return areas.find((area) => area.id === selectedId) || null;
 }
 
+/**
+ * Renders the offline-region selector.
+ *
+ * @returns {void}
+ */
 function renderOfflineAreas() {
   const select = document.getElementById("offline-area-list");
   if (!select) return;
@@ -1551,6 +2015,11 @@ function renderOfflineAreas() {
   }
 }
 
+/**
+ * Fetches and renders provider health diagnostics from the local proxy.
+ *
+ * @returns {Promise<void>}
+ */
 async function renderProviderHealth() {
   const status = document.getElementById("provider-health-status");
   const list = document.getElementById("provider-health-list");
@@ -1584,7 +2053,13 @@ async function renderProviderHealth() {
   }
 }
 
-// LT: Į cache įrašo zonos plyteles ir grąžina kiek jų pavyko išsaugoti. / EN: Stores area tiles in cache and returns how many were saved.
+/**
+ * Downloads and caches all tile URLs for an offline area.
+ *
+ * @param {string[]} urls Tile URLs to cache.
+ * @param {AbortSignal} signal Abort signal for canceling downloads.
+ * @returns {Promise<number>} Number of cached tiles.
+ */
 async function cacheTileUrls(urls, signal) {
   if (!("caches" in window)) return 0;
 
@@ -1606,7 +2081,7 @@ async function cacheTileUrls(urls, signal) {
         saved++;
       }
     } catch (error) {
-      // LT: Pavienės plytelės gali nepavykti dėl tinklo ar tiekėjo ribojimų. / EN: Individual tiles may fail because of network or provider limits.
+      // Individual tiles may fail because of network errors or provider limits.
     }
 
     if (progress) progress.value = index + 1;
@@ -1616,6 +2091,11 @@ async function cacheTileUrls(urls, signal) {
   return saved;
 }
 
+/**
+ * Reads and clamps the requested offline zoom range.
+ *
+ * @returns {{minZoom: number, maxZoom: number}} Valid offline zoom range.
+ */
 function getOfflineZoomRange() {
   const currentZoom = map.getZoom();
   const minInput = Number(document.getElementById("offline-min-zoom").value);
@@ -1626,6 +2106,11 @@ function getOfflineZoomRange() {
   return { minZoom, maxZoom };
 }
 
+/**
+ * Estimates tile count, cache size, and available browser storage for the map view.
+ *
+ * @returns {Promise<void>}
+ */
 async function renderOfflineEstimate() {
   const element = document.getElementById("offline-estimate");
   if (!element || !map) return;
@@ -1648,7 +2133,14 @@ async function renderOfflineEstimate() {
   element.textContent = estimate;
 }
 
-// LT: Išsaugo dabartinį žemėlapio centrą, mastelį, ribas ir pasirinktos zonos plyteles. / EN: Saves the current map center, zoom, bounds, and selected area tiles.
+/**
+ * Saves the current map view as an offline area.
+ *
+ * The saved metadata records bounds, center, zoom range, base layer, tile URLs,
+ * and a cache-progress estimate. It does not invent or cache external depth data.
+ *
+ * @returns {Promise<void>}
+ */
 async function downloadOfflineArea() {
   const bounds = map.getBounds();
   const { minZoom, maxZoom } = getOfflineZoomRange();
@@ -1702,11 +2194,20 @@ async function downloadOfflineArea() {
     TEXT[lang].offlineSaved(cachedTileCount);
 }
 
+/**
+ * Cancels the active offline-area download when one is running.
+ *
+ * @returns {void}
+ */
 function cancelOfflineDownload() {
   offlineAbortController?.abort();
 }
 
-// LT: Atkuria anksčiau išsaugotą žemėlapio vaizdą, jei toks yra. / EN: Restores the previously saved map view when one exists.
+/**
+ * Restores the selected saved map view.
+ *
+ * @returns {void}
+ */
 function loadOfflineArea() {
   const selectedArea = getSelectedOfflineArea();
   const legacyArea = localStorage.getItem("marine-navigator-offline");
@@ -1721,6 +2222,11 @@ function loadOfflineArea() {
   renderDepthStatus();
 }
 
+/**
+ * Deletes the selected offline area metadata and its cached tiles.
+ *
+ * @returns {Promise<void>}
+ */
 async function deleteSelectedOfflineArea() {
   const selectedArea = getSelectedOfflineArea();
   if (!selectedArea) {
@@ -1744,7 +2250,11 @@ async function deleteSelectedOfflineArea() {
   setText("offline-status", TEXT[lang].offlineDeleted);
 }
 
-// LT: Išvalo PWA ir žemėlapio cache, kai vartotojas nori atlaisvinti vietos. / EN: Clears PWA and map cache when the user wants to free storage.
+/**
+ * Clears PWA/runtime caches and saved offline-area metadata.
+ *
+ * @returns {Promise<void>}
+ */
 async function clearOfflineCache() {
   if ("caches" in window) {
     await caches.delete(CACHE_NAME);
@@ -1758,7 +2268,11 @@ async function clearOfflineCache() {
   setText("pwa-status", TEXT[lang].pwaCacheCleared);
 }
 
-// LT: Paleidžia naršyklės PWA įdiegimo dialogą, kai jis pasiekiamas. / EN: Opens the browser PWA install prompt when it is available.
+/**
+ * Opens the browser PWA install prompt when available.
+ *
+ * @returns {Promise<void>}
+ */
 async function installApp() {
   if (!deferredInstallPrompt) {
     setText("pwa-status", TEXT[lang].installUnavailable);
@@ -1771,7 +2285,12 @@ async function installApp() {
   renderPwaStatus();
 }
 
-// LT: Atidaro pasirinktą meniu panelį modaliniame lange virš žemėlapio. / EN: Opens the selected menu panel in a modal window above the map.
+/**
+ * Opens one sidebar tab inside the modal menu window.
+ *
+ * @param {string} tabName Tab panel id.
+ * @returns {void}
+ */
 function activateTab(tabName) {
   const t = TEXT[lang] || TEXT.lt;
   const menuWindow = document.getElementById("menu-window");
@@ -1808,7 +2327,11 @@ function activateTab(tabName) {
   }
 }
 
-// LT: Uždaro modalinį meniu ir nuima aktyvų meniu mygtuko pažymėjimą. / EN: Closes the modal menu and clears the active menu button state.
+/**
+ * Closes the modal menu and restores focus to the triggering tab button.
+ *
+ * @returns {void}
+ */
 function closeMenu() {
   const menuWindow = document.getElementById("menu-window");
   if (!menuWindow) return;
@@ -1832,7 +2355,19 @@ function closeMenu() {
   });
 }
 
-// LT: Vienoje vietoje prijungia visus mygtukus, formų laukus ir klaviatūros veiksmus. / EN: Wires all buttons, form fields, and keyboard actions in one place.
+/**
+ * Wires DOM events for controls, forms, map clicks, keyboard shortcuts, and layout.
+ *
+ * The map click handler routes clicks in priority order: measurement, waypoint
+ * placement, then EMODnet depth query. This keeps depth query behavior from
+ * interfering with route-planning modes.
+ *
+ * TODO:
+ * This function is longer than 100 lines and should later be split into setup
+ * helpers for navigation, charts/depth, offline, and global shell controls.
+ *
+ * @returns {void}
+ */
 function setupUI() {
   document
     .getElementById("boat-length")
@@ -1920,7 +2455,7 @@ function setupUI() {
     }
   });
 
-  // LT: Mygtukai jungiami pagal ID, kad nebūtų supainioti su kitais tokios pačios klasės mygtukais. / EN: Buttons are wired by ID so they are not confused with other buttons using the same class.
+  // Buttons are wired by ID so shared classes do not attach handlers twice.
   const gpsStartBtn = document.getElementById("gps-start");
   if (gpsStartBtn) gpsStartBtn.addEventListener("click", geolocate);
 
@@ -1994,7 +2529,7 @@ function setupUI() {
     showDepthAtPoint(e);
   });
 
-  // LT: Kalbos ir temos perjungimo mygtukai. / EN: Language and theme toggle buttons.
+  // Language and theme toggles re-render UI without rebuilding application state.
   const langToggle = document.getElementById("lang-toggle");
   if (langToggle) {
     langToggle.addEventListener("click", () => {
@@ -2029,6 +2564,14 @@ function setupUI() {
   renderDepthStatus();
 }
 
+/**
+ * Initializes the app after the window load event.
+ *
+ * Registers the service worker for offline shell/runtime caching and then starts
+ * the first render pass for map layers, status panels, and provider health.
+ *
+ * @returns {void}
+ */
 function init() {
   renderLayerControl();
   setupUI();

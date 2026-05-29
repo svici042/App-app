@@ -1,3 +1,10 @@
+/**
+ * User-interface copy.
+ *
+ * Keeps Lithuanian and English strings, formatter functions, and provider labels
+ * in one place so the main controller can re-render the app after language changes.
+ */
+
 export const TEXT = {
   lt: {
     appDescription:

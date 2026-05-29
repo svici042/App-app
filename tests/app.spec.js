@@ -1,11 +1,31 @@
 import { expect, test } from "@playwright/test";
 
+/**
+ * Marine Navigator end-to-end regression tests.
+ *
+ * Exercises the browser UI across desktop and mobile projects, including map
+ * controls, depth overlays, depth click queries, offline UI, and provider metadata.
+ */
+
+/**
+ * Opens the sidebar when a responsive test starts with the drawer collapsed.
+ *
+ * @param {import("@playwright/test").Page} page Playwright page.
+ * @returns {Promise<void>}
+ */
 async function openSidebarIfCollapsed(page) {
   if ((await page.locator("body.sidebar-collapsed").count()) > 0) {
     await page.locator("#open-sidebar").click();
   }
 }
 
+/**
+ * Checks whether two DOM bounding boxes intersect.
+ *
+ * @param {{x: number, y: number, width: number, height: number}} a First box.
+ * @param {{x: number, y: number, width: number, height: number}} b Second box.
+ * @returns {boolean} True when the boxes overlap.
+ */
 function boxesOverlap(a, b) {
   return !(
     a.x + a.width <= b.x ||
@@ -15,6 +35,12 @@ function boxesOverlap(a, b) {
   );
 }
 
+/**
+ * Verifies the floating menu button stays below all orientation controls.
+ *
+ * @param {import("@playwright/test").Page} page Playwright page.
+ * @returns {Promise<void>}
+ */
 async function expectMenuBelowOrientationControls(page) {
   const menuBox = await page.locator("#open-sidebar").boundingBox();
   const controlBoxes = [];

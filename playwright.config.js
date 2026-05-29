@@ -1,5 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
+/**
+ * Playwright end-to-end configuration.
+ *
+ * Starts both the local provider proxy and HTTPS Vite server, then runs the same
+ * UI regression suite against desktop Chromium and a Pixel-sized mobile viewport.
+ */
 export default defineConfig({
   testDir: "./tests",
   testMatch: "**/*.spec.js",

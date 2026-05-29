@@ -1,7 +1,10 @@
-/*
-    LT: Paprastas Node proxy EMODnet / GEBCO užklausoms, CORS ir cache kontrolei.
-    EN: Small Node proxy for EMODnet / GEBCO requests, CORS, and cache control.
-*/
+/**
+ * Marine Navigator provider proxy.
+ *
+ * Provides a same-origin Node HTTP proxy for EMODnet/GEBCO requests, provider
+ * health checks, response-size protection, CORS allowlisting, and short-lived
+ * memory/disk caching for external provider responses.
+ */
 
 import http from "node:http";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
@@ -38,6 +41,12 @@ const SOURCES = {
   osmTile: "https://a.tile.openstreetmap.org/0/0/0.png",
 };
 
+/**
+ * Resolves the CORS origin allowed for a request.
+ *
+ * @param {http.IncomingMessage} request Node HTTP request.
+ * @returns {string|null} Allowed origin value or null when blocked.
+ */
 function getCorsOrigin(request) {
   const requestOrigin = request?.headers.origin;
   if (ALLOWED_ORIGINS.includes("*")) return "*";
@@ -46,6 +55,12 @@ function getCorsOrigin(request) {
   return null;
 }
 
+/**
+ * Builds common security and CORS response headers.
+ *
+ * @param {http.IncomingMessage} request Node HTTP request.
+ * @returns {Record<string, string>} Headers for proxy responses.
+ */
 function baseHeaders(request) {
   const origin = getCorsOrigin(request);
   return {
@@ -58,6 +73,16 @@ function baseHeaders(request) {
   };
 }
 
+/**
+ * Writes an HTTP response with shared proxy headers.
+ *
+ * @param {http.ServerResponse} response Node HTTP response.
+ * @param {number} status HTTP status code.
+ * @param {string|Buffer} body Response body.
+ * @param {Record<string, string>} [headers={}] Additional headers.
+ * @param {http.IncomingMessage|null} [request=null] Source request for CORS.
+ * @returns {void}
+ */
 function send(response, status, body, headers = {}, request = null) {
   response.writeHead(status, {
     ...baseHeaders(request),
@@ -66,6 +91,12 @@ function send(response, status, body, headers = {}, request = null) {
   response.end(body);
 }
 
+/**
+ * Reads a fresh item from the in-memory provider cache.
+ *
+ * @param {string} key Cache key, usually the full target URL.
+ * @returns {{body: Buffer, contentType: string, createdAt: number}|null} Cached item.
+ */
 function cacheGet(key) {
   const item = memoryCache.get(key);
   if (!item || Date.now() - item.createdAt > CACHE_TTL_MS) {
@@ -75,14 +106,33 @@ function cacheGet(key) {
   return item;
 }
 
+/**
+ * Stores a provider response in memory with the current timestamp.
+ *
+ * @param {string} key Cache key.
+ * @param {{body: Buffer, contentType: string}} value Provider response data.
+ * @returns {void}
+ */
 function cacheSet(key, value) {
   memoryCache.set(key, { ...value, createdAt: Date.now() });
 }
 
+/**
+ * Maps a cache key to a deterministic disk-cache JSON path.
+ *
+ * @param {string} key Cache key.
+ * @returns {string} Absolute cache file path.
+ */
 function cacheFilePath(key) {
   return path.join(DISK_CACHE_DIR, `${createHash("sha256").update(key).digest("hex")}.json`);
 }
 
+/**
+ * Reads a fresh provider response from the disk cache.
+ *
+ * @param {string} key Cache key.
+ * @returns {Promise<{body: Buffer, contentType: string, createdAt: number}|null>} Cached item.
+ */
 async function diskCacheGet(key) {
   try {
     const filePath = cacheFilePath(key);
@@ -99,6 +149,13 @@ async function diskCacheGet(key) {
   }
 }
 
+/**
+ * Writes a provider response to disk as base64 JSON.
+ *
+ * @param {string} key Cache key.
+ * @param {{body: Buffer, contentType: string}} value Provider response data.
+ * @returns {Promise<void>}
+ */
 async function diskCacheSet(key, value) {
   await mkdir(DISK_CACHE_DIR, { recursive: true });
   await writeFile(
@@ -111,6 +168,12 @@ async function diskCacheSet(key, value) {
   );
 }
 
+/**
+ * Reads an upstream body while enforcing the configured maximum response size.
+ *
+ * @param {Response} upstream Fetch response from an external provider.
+ * @returns {Promise<Buffer>} Response body bytes.
+ */
 async function readLimitedBody(upstream) {
   const contentLength = Number(upstream.headers.get("content-length") || 0);
   if (contentLength > PROXY_MAX_RESPONSE_BYTES) {
@@ -141,6 +204,14 @@ async function readLimitedBody(upstream) {
   return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
 }
 
+/**
+ * Proxies a provider URL with cache lookup, size limits, and response headers.
+ *
+ * @param {string} targetUrl External provider URL.
+ * @param {http.IncomingMessage} request Original request.
+ * @param {http.ServerResponse} response Response to write.
+ * @returns {Promise<void>}
+ */
 async function proxyFetch(targetUrl, request, response) {
   const cached = cacheGet(targetUrl) || (await diskCacheGet(targetUrl));
   if (cached) {
@@ -171,6 +242,13 @@ async function proxyFetch(targetUrl, request, response) {
   }, request);
 }
 
+/**
+ * Checks one provider endpoint and records latency/status for diagnostics.
+ *
+ * @param {string} id Provider id.
+ * @param {string} url Health-check URL.
+ * @returns {Promise<{id: string, ok: boolean, status: number, latencyMs: number, error?: string}>}
+ */
 async function checkProvider(id, url) {
   const startedAt = Date.now();
   try {
@@ -195,6 +273,11 @@ async function checkProvider(id, url) {
   }
 }
 
+/**
+ * Runs provider health checks used by the layer-status UI.
+ *
+ * @returns {Promise<{ok: boolean, checkedAt: string, providers: unknown[]}>} Health payload.
+ */
 async function providerHealth() {
   const checks = await Promise.all([
     checkProvider(
@@ -215,6 +298,13 @@ async function providerHealth() {
   };
 }
 
+/**
+ * Copies incoming query parameters onto a fixed provider base URL.
+ *
+ * @param {string} baseUrl Provider base URL.
+ * @param {URLSearchParams} searchParams Request query parameters.
+ * @returns {string} Full provider URL.
+ */
 function appendSearch(baseUrl, searchParams) {
   const url = new URL(baseUrl);
   searchParams.forEach((value, key) => url.searchParams.set(key, value));

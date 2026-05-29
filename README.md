@@ -1,176 +1,180 @@
 # Marine Navigator
 
-## LT
+Marine Navigator is a map-first marine navigation assistant built as a web/PWA app with Capacitor Android/iOS projects. It supports GPS tracking, route planning, GPX import/export, offline map regions, EMODnet bathymetry overlays, EMODnet point depth queries, and provider metadata/status display.
 
-`Marine Navigator` yra interaktyvi jūrinės navigacijos PWA aplikacija su realiais EMODnet batimetrijos sluoksniais, GEBCO dugno reljefu, GPS sekimu, maršrutais, offline zona ir Capacitor Android/iOS projektais.
+This app is not a certified ECDIS or primary navigation system. Depth and bathymetry data are advisory only.
 
-### Funkcijos
+## Architecture Overview
 
-- `Leaflet` žemėlapis bundlinamas per Vite iš lokalių `vendor/` failų.
-- CSS failai kraunami per `index.html`, todėl appas neužlūžta ir paprastame statiniame serveryje.
-- Tikri EMODnet batimetrijos WMS sluoksniai ir GEBCO shaded relief dugno reljefas.
-- Realaus gylio mėginiai per lokalų proxy su tiesioginiu EMODnet fallback.
-- Tiekėjų būsenos indikatorius rodo EMODnet, GEBCO ir OpenStreetMap pasiekiamumą.
-- GPS sekimas, greitis, kryptis, GPS start/stop ir žemėlapio orientacija pagal šiaurę arba maršruto kryptį.
-- Maršruto taškai, atstumo skaičiavimas, taškų trynimas, GPX importas/eksportas ir maršrutų istorija.
-- MOB/SOS taškas su koordinačių bendrinimu.
-- Greitas dviejų taškų matavimas.
-- Saugus minimalus gylis ir seklumos įspėjimas realaus gylio lange.
-- Kompaktiškas sluoksnių valdiklis, kuris susitraukia nenaudojamas.
-- LT/EN kalbos, dienos/nakties tema ir mažesni ergonomiški valdikliai.
-- Offline zonos atsisiuntimas pagal pasirinktą plotą ir zoom lygius su dydžio įvertinimu, progresu, atšaukimu, cache kvotos rodymu ir išsaugotų zonų manifestu.
-- PWA manifestas, service worker, install mygtukas, offline statusas ir cache išvalymas.
-- Capacitor native pluginai: Geolocation, Filesystem ir Share.
-- Node proxy serveris su env valdomu CORS allowlist, saugumo headeriais, provider health endpointu ir diskiniu `.proxy-cache/` cache.
-- Playwright testai ir GitHub Actions CI (`check`, `build`, `test`).
+The app is intentionally small and mostly client-side:
 
-### Projekto struktūra
+- `index.html` defines the static shell, map container, sidebar panels, depth diagnostics, and PWA metadata.
+- `src/main.js` is the application controller. It wires the map, GPS, navigation modes, route editing, GPX import/export, offline downloads, depth queries, WMS synchronization, and UI state.
+- `src/config.js` centralizes providers, cache keys, proxy paths, WMS endpoints, and depth-source metadata.
+- `src/map.js` creates the Leaflet map and custom WMS panes. WMS panes are children of Leaflet's tile pane so rotation stays synchronized.
+- `src/routes.js` contains pure navigation math and route-history parsing.
+- `src/offline.js` converts map bounds to slippy-map tile URLs and estimates cache size.
+- `src/gps.js` bridges browser geolocation and Capacitor Geolocation.
+- `src/pwa.js` wraps Web Share, Capacitor Share, and Capacitor Filesystem.
+- `service-worker.js` pre-caches the app shell and maintains a capped runtime cache for map/runtime GET responses.
+- `server/proxy-server.js` is a same-origin proxy for EMODnet/GEBCO/provider-health requests with CORS allowlisting, timeout limits, response-size limits, memory cache, and disk cache.
+- `tests/` contains Playwright UI regressions and Node unit tests for navigation math/GPX contracts.
 
-- `index.html` - Vite entry HTML.
-- `src/main.js` - pagrindinė app logika ir modulinių dalių sujungimas.
-- `src/map.js` - žemėlapio kūrimas ir pane sluoksniai.
-- `src/gps.js` - naršyklės/native GPS pagalbinės funkcijos.
-- `src/routes.js` - maršrutų, atstumų ir krypčių skaičiavimai.
-- `src/offline.js` - offline plytelių URL generavimas, dydžio įvertinimas ir formatavimas.
-- `src/pwa.js` - native/web share ir filesystem integracijos.
-- `src/i18n.js` - LT/EN tekstai.
-- `src/ui.js` - bendros UI pagalbinės funkcijos.
-- `server/proxy-server.js` - EMODnet/GEBCO proxy ir cache serveris.
-- `tests/app.spec.js` - Playwright patikrinimai.
-- `android/`, `ios/` - Capacitor mobilūs projektai.
+## Folder Structure
 
-### Kaip paleisti
+- `android/` - Capacitor Android project.
+- `ios/` - Capacitor iOS project.
+- `media/` - icons and LovLaus logo assets.
+- `scripts/copy-static.js` - copies service worker, manifest, icons, and logo into `dist/` after build.
+- `server/` - local provider proxy.
+- `src/` - application source modules.
+- `tests/` - Playwright and Node tests.
+- `vendor/` - local Leaflet and Leaflet rotation plugin files.
+- `dist/` - generated production build output.
 
-1. Įdiekite priklausomybes: `npm install`.
-2. Paleiskite proxy serverį: `npm run proxy`.
-3. Kitame terminale paleiskite appą: `npm run dev`.
-4. Atidarykite `http://localhost:5173`.
+## Navigation Modes
 
-### Komandos
+- **North-up**: map bearing is forced to `0`. The North button resets rotation and updates the active UI state.
+- **Heading-up**: map bearing follows the best available heading. Preference order is GPS heading/course, inferred movement bearing, then latest route segment bearing.
+- **Follow mode**: map follows the current GPS position and also applies heading-up behavior when heading/course data is available.
 
-- `npm run dev` - Vite dev serveris.
-- `npm run proxy` - EMODnet / GEBCO proxy ir diskinis cache serveris.
-- `npm run check` - sintaksės patikrinimas svarbiausiems JS failams.
-- `npm run build` - produkcinis build į `dist/`.
-- `npm run preview` - lokali produkcinio build peržiūra.
-- `npm test` - Playwright testai desktop ir mobile Chromium profiliuose.
-- `npm run cap:sync` - nukopijuoja `dist/` į Android/iOS Capacitor projektus.
-- `npm run cap:open:android` - atidaro Android projektą.
-- `npm run cap:open:ios` - atidaro iOS projektą.
+The app keeps WMS bathymetry panes synchronized with the rotated Leaflet tile pane. WMS redraws are debounced after zoom, pan, and rotation events to reduce Android flicker.
 
-### Mobilios platformos
+## Map Providers
 
-- Android projektas yra `android/`.
-- iOS projektas yra `ios/`.
-- Prieš sync paleiskite `npm run build`, tada `npm run cap:sync`.
-- Android build’ui reikia Android Studio / SDK.
-- iOS build’ui reikia macOS su Xcode.
-- Android manifestas turi interneto ir tikslios/apytikslės lokacijos teises.
-- iOS `Info.plist` turi lokacijos naudojimo aprašymus.
+Configured base-map providers live in `src/config.js`:
 
-### Proxy konfigūracija
+- OpenStreetMap: community base map.
+- Esri World Imagery: satellite imagery reference layer.
+- Esri World Topo Map: terrain/topographic reference layer.
 
-- `PORT` - proxy portas, pagal nutylėjimą `8787`.
-- `PROXY_ALLOWED_ORIGINS` - kableliais atskirtas CORS origin allowlist. Pagal nutylėjimą leidžiami tik lokalūs Vite originai (`localhost` / `127.0.0.1` ant `5173` ir `4173`). Produkcijai nustatykite konkrečius domenus, pvz. `https://example.com,https://app.example.com`.
-- `PROXY_PROVIDER_TIMEOUT_MS` - provider health patikros timeout milisekundėmis, pagal nutylėjimą `3000`.
-- `PROXY_TIMEOUT_MS` - upstream proxy užklausų timeout milisekundėmis, pagal nutylėjimą `10000`.
-- `PROXY_MAX_RESPONSE_BYTES` - maksimalus vieno upstream atsakymo dydis baitais, pagal nutylėjimą `15728640` (15 MB).
-- `/api/health` - paprastas proxy gyvybingumo patikrinimas.
-- `/api/provider-health` - EMODnet, GEBCO ir OpenStreetMap pasiekiamumo bei latency patikrinimas.
+Provider metadata includes display name, layer type, data type, attribution, license URL when known, offline allowance status, quality, and safety use. No provider is presented as certified for primary navigation.
 
-### Saugumo pastabos
+## Depth And Bathymetry Providers
 
-- Appas nėra sertifikuota navigacijos saugumo sistema. Batimetrija priklauso nuo EMODnet/GEBCO servisų prieinamumo ir tikslumo.
-- Proxy leidžia tik whitelist’intus EMODnet/GEBCO/OpenStreetMap hostus, riboja URL ilgį, prideda `nosniff`, `no-referrer` ir CORP headerius.
-- Produkcijoje nustatykite `PROXY_ALLOWED_ORIGINS`, kad CORS veiktų tik su leidžiamais domenais.
-- Proxy riboja upstream užklausų trukmę ir atsakymo dydį, kad provider klaidos neišpūstų cache ar neužkabintų proceso.
-- Offline cache gali užimti daug vietos, todėl prieš atsisiuntimą rodoma dydžio ir kvotos informacija, o išsaugotas zonas galima trinti atskirai.
+Configured depth-related providers:
 
-## EN
+- **EMODnet Bathymetry**: primary bathymetry source for WMS contours/source layers and numeric depth query endpoint.
+- **GEBCO relief**: optional approximate visual seabed relief only. It is not numeric depth soundings.
+- **Experimental 3D seabed**: not implemented and hidden/disabled until a real renderer exists.
 
-`Marine Navigator` is an interactive marine navigation PWA with real EMODnet bathymetry layers, GEBCO seabed relief, GPS tracking, route planning, offline area downloads, and Capacitor Android/iOS projects.
+Continuous depth visibility defaults to EMODnet contours where provider tiles render. Numeric depth is requested by tap/click through `/api/depth`, which proxies EMODnet REST depth samples.
 
-### Features
+## Offline Support
 
-- `Leaflet` map bundled by Vite from local `vendor/` files.
-- CSS files are loaded through `index.html`, so the app also avoids crashes on a plain static server.
-- Real EMODnet bathymetry WMS layers and GEBCO shaded seabed relief.
-- Real depth samples through the local proxy with direct EMODnet fallback.
-- Provider status indicator shows EMODnet, GEBCO, and OpenStreetMap availability.
-- GPS tracking, speed, heading, GPS start/stop, and north-up or route-heading-up map orientation.
-- Route waypoints, distance calculation, waypoint deletion, GPX import/export, and route history.
-- MOB/SOS marker with coordinate sharing.
-- Quick two-point distance measurement.
-- Minimum safe depth and shallow-water warning in the real depth popup.
-- Compact layer control that collapses when unused.
-- LT/EN language switch, day/night theme, and smaller ergonomic controls.
-- Offline area download by selected bounds and zoom levels with size estimate, progress, cancel action, cache quota display, and a saved-area manifest.
-- PWA manifest, service worker, install button, offline status, and cache clearing.
-- Capacitor native plugins: Geolocation, Filesystem, and Share.
-- Node proxy server with env-controlled CORS allowlist, security headers, provider health endpoint, and disk-backed `.proxy-cache/`.
-- Playwright tests and GitHub Actions CI (`check`, `build`, `test`).
+Offline support has two layers:
 
-### Project Structure
+- The service worker caches app shell/runtime GET responses and can serve the latest app shell offline.
+- The offline-region UI explicitly downloads visible base-map tiles for selected bounds and zoom levels into the Cache API.
 
-- `index.html` - Vite entry HTML.
-- `src/main.js` - main app logic and module composition.
-- `src/map.js` - map creation and pane setup.
-- `src/gps.js` - browser/native GPS helpers.
-- `src/routes.js` - route, distance, and bearing calculations.
-- `src/offline.js` - offline tile URL generation, size estimates, and formatting.
-- `src/pwa.js` - native/web share and filesystem integrations.
-- `src/i18n.js` - LT/EN text dictionary.
-- `src/ui.js` - shared UI helpers.
-- `server/proxy-server.js` - EMODnet/GEBCO proxy and cache server.
-- `tests/app.spec.js` - Playwright checks.
-- `android/`, `ios/` - Capacitor mobile projects.
+Offline regions store metadata in localStorage: name, bounds, center, zoom range, base layer, tile URLs, estimated bytes, and cached tile count. The app does not invent offline bathymetry coverage; if depth data is not available for an offline area, the UI says so.
 
-### How To Run
+## Development
 
-1. Install dependencies: `npm install`.
-2. Start the proxy server: `npm run proxy`.
-3. In another terminal, start the app: `npm run dev`.
-4. Open `http://localhost:5173`.
+Install dependencies:
 
-### Commands
+```bash
+npm install
+```
 
-- `npm run dev` - Vite dev server.
-- `npm run proxy` - EMODnet / GEBCO proxy and disk cache server.
-- `npm run check` - syntax check for the key JS files.
-- `npm run build` - production build into `dist/`.
-- `npm run preview` - local preview of the production build.
-- `npm test` - Playwright tests for desktop and mobile Chromium profiles.
-- `npm run cap:sync` - copies `dist/` into Android/iOS Capacitor projects.
-- `npm run cap:open:android` - opens the Android project.
-- `npm run cap:open:ios` - opens the iOS project.
+Run the provider proxy:
 
-### Mobile Platforms
+```bash
+npm run proxy
+```
 
-- Android project: `android/`.
-- iOS project: `ios/`.
-- Before sync, run `npm run build`, then `npm run cap:sync`.
-- Android builds require Android Studio / SDK.
-- iOS builds require macOS with Xcode.
-- The Android manifest includes internet and coarse/fine location permissions.
-- iOS `Info.plist` includes location usage descriptions.
+Run the HTTPS Vite dev server:
 
-### Proxy Configuration
+```bash
+npm run dev
+```
 
-- `PORT` - proxy port, defaults to `8787`.
-- `PROXY_ALLOWED_ORIGINS` - comma-separated CORS origin allowlist. Defaults to local Vite origins only (`localhost` / `127.0.0.1` on `5173` and `4173`). In production, set explicit domains, e.g. `https://example.com,https://app.example.com`.
-- `PROXY_PROVIDER_TIMEOUT_MS` - provider health timeout in milliseconds, defaults to `3000`.
-- `PROXY_TIMEOUT_MS` - upstream proxy request timeout in milliseconds, defaults to `10000`.
-- `PROXY_MAX_RESPONSE_BYTES` - maximum size for one upstream response in bytes, defaults to `15728640` (15 MB).
-- `/api/health` - simple proxy liveness check.
-- `/api/provider-health` - EMODnet, GEBCO, and OpenStreetMap availability and latency check.
+Open:
 
-### Security Notes
+```text
+https://localhost:5173
+```
 
-- The app is not a certified navigation safety system. Bathymetry depends on EMODnet/GEBCO service availability and accuracy.
-- The proxy only calls whitelisted EMODnet/GEBCO/OpenStreetMap hosts, limits URL length, and adds `nosniff`, `no-referrer`, and CORP headers.
-- In production, set `PROXY_ALLOWED_ORIGINS` so CORS only works for approved domains.
-- The proxy limits upstream request duration and response size so provider failures cannot grow cache or hold the process indefinitely.
-- Offline cache can use significant storage, so the app shows size and quota information before download and allows deleting saved areas individually.
+The dev server proxies `/api` to `http://localhost:8787`.
+
+## Build
+
+Production build:
+
+```bash
+npm run build
+```
+
+Preview the production build:
+
+```bash
+npm run preview
+```
+
+## Android Build
+
+Build the web app and sync Capacitor:
+
+```bash
+npm run build
+npx cap sync android
+```
+
+Open Android Studio:
+
+```bash
+npx cap open android
+```
+
+Android requires Android Studio/SDK. The Android manifest includes internet and coarse/fine location permissions.
+
+## Testing
+
+Syntax check:
+
+```bash
+npm run check
+```
+
+Production build verification:
+
+```bash
+npm run build
+```
+
+Full test suite:
+
+```bash
+npm test
+```
+
+Playwright starts the proxy and HTTPS Vite server automatically. It runs desktop Chromium and Pixel-sized mobile Chromium projects. The suite covers map shell loading, collapsible UI, North/Heading/Follow controls, WMS redraw behavior, depth tap queries, provider metadata, offline UI, and fallback/3D safety semantics.
+
+## Proxy Configuration
+
+Environment variables:
+
+- `PORT` - proxy port, default `8787`.
+- `PROXY_ALLOWED_ORIGINS` - comma-separated CORS allowlist. Defaults to local Vite origins.
+- `PROXY_PROVIDER_TIMEOUT_MS` - provider-health timeout, default `3000`.
+- `PROXY_TIMEOUT_MS` - upstream proxy timeout, default `10000`.
+- `PROXY_MAX_RESPONSE_BYTES` - maximum upstream response size, default `15728640` bytes.
+
+Endpoints:
+
+- `/api/health` - local proxy liveness.
+- `/api/provider-health` - EMODnet, GEBCO, and OpenStreetMap status.
+- `/api/depth?lat=...&lng=...` - proxied EMODnet numeric depth sample.
+- `/api/wms/emodnet` - proxied EMODnet WMS.
+- `/api/wms/gebco` - proxied GEBCO WMS.
+
+## Safety Notes
+
+- Marine Navigator is advisory software, not a certified ECDIS.
+- Depth and bathymetry data depend on external provider coverage, quality, availability, and licensing.
+- GEBCO relief is visual-only and must not be treated as numeric soundings.
+- Offline base-map downloads do not guarantee offline depth coverage.
+- Always verify navigation decisions with official charts and appropriate onboard instruments.
 
 ## LovLaus Copyright
 

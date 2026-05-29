@@ -16,7 +16,7 @@
     <button class="floating-menu-button" type="button" id="open-sidebar" aria-label="Open menu" aria-controls="app-sidebar" aria-expanded="true">☰</button>
     <button class="sidebar-backdrop" type="button" id="sidebar-backdrop" aria-label="Close menu"></button>
     <div class="app-shell">
-        <!-- LT: Kairysis valdymo blokas: kalba, tema ir meniu mygtukai. / EN: Left control area: language, theme, and menu buttons. -->
+        <!-- Left control area: language, theme, and menu buttons. -->
         <section class="sidebar" id="app-sidebar" aria-label="Application menu">
             <article class="card header-card">
                 <div class="sidebar-bar">
@@ -40,7 +40,7 @@
                 </div>
             </article>
 
-            <!-- LT: Modalinis meniu langas: atidaromas paspaudus vieną iš meniu mygtukų. / EN: Modal menu window opened by clicking one of the menu buttons. -->
+            <!-- Modal menu window opened by clicking one of the menu buttons. -->
             <div class="menu-window hidden" id="menu-window" aria-hidden="true" inert>
                 <div class="menu-dialog" role="dialog" aria-modal="true" aria-labelledby="menu-title">
                     <div class="menu-bar">
@@ -48,7 +48,7 @@
                         <button class="icon-btn" type="button" id="close-menu" aria-label="Uždaryti">×</button>
                     </div>
 
-            <!-- LT: Navigacijos panelis: GPS ir maršruto valdymas. / EN: Navigation panel for GPS and route controls. -->
+            <!-- Navigation panel for GPS and route controls. -->
             <article class="card tab-panel hidden" id="tab-navigation">
                 <h3 id="gps-title">Realaus laiko GPS</h3>
                 <p id="gps-status">...</p>
@@ -80,7 +80,7 @@
                 </div>
             </article>
 
-            <!-- LT: Žemėlapių panelis: paaiškina gylių, matavimų šaltinių ir reljefo sluoksnius. / EN: Charts panel explaining depth, survey source, and relief layers. -->
+            <!-- Charts panel explaining depth, survey source, and relief layers. -->
             <article class="card tab-panel hidden" id="tab-charts">
                 <h3 id="charts-title">Žemėlapio sluoksniai</h3>
                 <p class="small-note" id="charts-description">Matomi realūs EMODnet gyliai, gylio kontūrai, matavimų šaltiniai ir GEBCO dugno reljefas.</p>
@@ -110,7 +110,7 @@
                 </div>
             </article>
 
-            <!-- LT: Nustatymų panelis: laivo parametrai naudojami ridos skaičiavimui. / EN: Settings panel where boat parameters are used for range estimates. -->
+            <!-- Settings panel where boat parameters are used for range estimates. -->
             <article class="card tab-panel hidden" id="tab-settings">
                 <h3 id="boat-settings-title">Laivo nustatymai</h3>
                 <div class="fieldset">
@@ -130,7 +130,7 @@
                 </div>
             </article>
 
-            <!-- LT: Išsaugoto vaizdo panelis saugo ir atkuria dabartinę žemėlapio zoną. / EN: Saved view panel saves and restores the current map area. -->
+            <!-- Saved view panel stores and restores the current map area. -->
             <article class="card tab-panel hidden" id="tab-offline">
                 <h3 id="offline-title">Išsaugotas žemėlapio vaizdas</h3>
                 <p class="small-note" id="offline-description">Išsaugokite pasirinktą žemėlapio zoną ir zoom lygius.</p>
@@ -163,7 +163,7 @@
             </div>
         </section>
 
-        <!-- LT: Pagrindinė darbo zona: Leaflet žemėlapis ir trumpa sluoksnių informacija. / EN: Main workspace: Leaflet map and short layer information. -->
+        <!-- Main workspace: Leaflet map and compact layer/depth information. -->
         <section class="map-panel">
             <div class="map-wrap">
                 <div id="map"></div>

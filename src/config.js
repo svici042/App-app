@@ -1,8 +1,43 @@
+/**
+ * Marine Navigator configuration.
+ *
+ * Centralizes cache keys, proxy paths, tile providers, WMS endpoints,
+ * provider metadata, and depth-source categories used by the map UI.
+ */
+
+/**
+ * Cache namespace for explicit offline map downloads.
+ *
+ * Bump this when cached map-tile semantics change.
+ */
 export const CACHE_NAME = "marine-navigator-map-cache-v3";
+
+/**
+ * Cache namespace for runtime app and tile responses handled by the service worker.
+ */
 export const RUNTIME_CACHE_NAME = "marine-navigator-runtime-cache-v2";
+
+/**
+ * Browser storage key for manually created route history.
+ */
 export const ROUTE_HISTORY_KEY = "marine-navigator-route-history";
+
+/**
+ * Browser storage key for user-defined offline map regions.
+ */
 export const OFFLINE_AREAS_KEY = "marine-navigator-offline-areas";
+
+/**
+ * Same-origin proxy base path for provider health, WMS, and EMODnet depth queries.
+ */
 export const PROXY_BASE_URL = "/api";
+
+/**
+ * Base map tile templates.
+ *
+ * OpenStreetMap is community data. Esri imagery and terrain are reference
+ * background layers; the app does not treat any base map as certified navigation data.
+ */
 export const TILE_SOURCES = {
   Default: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   Satelitas:
@@ -10,10 +45,23 @@ export const TILE_SOURCES = {
   Terra:
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
 };
+
+/**
+ * WMS endpoints used for bathymetry overlays.
+ *
+ * EMODnet is the primary bathymetry source. GEBCO is optional visual relief only.
+ */
 export const WMS_SOURCES = {
   emodnet: "https://ows.emodnet-bathymetry.eu/wms",
   gebco: "https://wms.gebco.net/mapserv",
 };
+
+/**
+ * Provider metadata displayed in the data-source UI and used by tests.
+ *
+ * `safetyUse` is intentionally conservative. None of these providers are marked
+ * as certified primary-navigation data.
+ */
 export const PROVIDERS = {
   openstreetmap: {
     id: "openstreetmap",
@@ -71,6 +119,13 @@ export const PROVIDERS = {
     safetyUse: "visualOnly",
   },
 };
+
+/**
+ * Depth-related source registry grouped by behavior category.
+ *
+ * The primary source can expose numeric/raster depth-related layers, the fallback
+ * is approximate visual seabed relief, and 3D remains explicitly unimplemented.
+ */
 export const DEPTH_SOURCES = {
   primary: {
     id: "emodnet",

@@ -1,5 +1,11 @@
 import { cp, mkdir } from "node:fs/promises";
 
+/**
+ * Copies static runtime assets into Vite's `dist` folder after a production build.
+ *
+ * Vite processes module assets, while the service worker, web manifest, icons,
+ * and logo need to remain available at stable public paths.
+ */
 const copies = [
   ["service-worker.js", "dist/service-worker.js"],
   ["manifest.json", "dist/manifest.json"],
