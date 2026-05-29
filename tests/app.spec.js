@@ -117,6 +117,80 @@ test("keeps controls usable after GPS start fails", async ({ page }) => {
   await expect(page.locator("#tab-charts")).toBeVisible();
   await page.getByRole("button", { name: "Nustatymai" }).click();
   await expect(page.locator("#tab-settings")).toBeVisible();
+  await expect(page.locator("#gps-diagnostics")).toContainText("Leidimas: atmestas");
+});
+
+test("GPS diagnostics show browser source, accuracy, and last update", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        clearWatch: () => {},
+        watchPosition: (success) => {
+          success({
+            timestamp: new Date("2026-05-29T10:15:30Z").getTime(),
+            coords: {
+              latitude: 55.7,
+              longitude: 21.1,
+              accuracy: 6.4,
+              speed: 3,
+              heading: 44,
+            },
+          });
+          return 21;
+        },
+      },
+    });
+  });
+
+  await page.goto("/");
+  await openSidebarIfCollapsed(page);
+  await page.getByRole("button", { name: "Navigacija" }).click();
+  await page.locator("#gps-start").click();
+
+  await expect(page.locator("#gps-diagnostics")).toContainText("GPS šaltinis: naršyklė");
+  await expect(page.locator("#gps-diagnostics")).toContainText("Tikslumas: 6 m");
+  await expect(page.locator("#gps-diagnostics")).toContainText("Leidimas: suteiktas");
+  await expect(page.locator("#gps-diagnostics")).not.toContainText("Atnaujinta: --");
+});
+
+test("GPS watch restarts after app resume when tracking was active", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__gpsWatchCount = 0;
+    window.__gpsCleared = [];
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        clearWatch: (id) => window.__gpsCleared.push(id),
+        watchPosition: (success) => {
+          window.__gpsWatchCount += 1;
+          success({
+            timestamp: Date.now(),
+            coords: {
+              latitude: 55.7,
+              longitude: 21.1,
+              accuracy: 9,
+              speed: 2,
+              heading: 15,
+            },
+          });
+          return window.__gpsWatchCount;
+        },
+      },
+    });
+  });
+
+  await page.goto("/");
+  await openSidebarIfCollapsed(page);
+  await page.getByRole("button", { name: "Navigacija" }).click();
+  await page.locator("#gps-start").click();
+  await expect.poll(() => page.evaluate(() => window.__gpsWatchCount)).toBe(1);
+
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+
+  await expect.poll(() => page.evaluate(() => window.__gpsWatchCount)).toBe(2);
+  await expect.poll(() => page.evaluate(() => window.__gpsCleared)).toEqual([1]);
+  await expect(page.locator("#gps-status")).toHaveText("GPS atnaujintas po app sugrįžimo.");
 });
 
 test("closes the menu without leaving focus inside hidden content", async ({ page }) => {

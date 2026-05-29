@@ -21,7 +21,15 @@ import {
 } from "./config.js";
 import { TEXT } from "./i18n.js";
 import { createMap, createMapPanes } from "./map.js";
-import { getNativePosition, metersPerSecondToKnots } from "./gps.js";
+import {
+  clearNativePositionWatch,
+  getNativePosition,
+  GPS_WATCH_OPTIONS,
+  isNativePlatform,
+  metersPerSecondToKnots,
+  requestNativeLocationPermission,
+  startNativePositionWatch,
+} from "./gps.js";
 import { setText } from "./ui.js";
 import {
   bearingBetweenPoints,
@@ -57,6 +65,9 @@ let waypointMode = false;
 let measureMode = false;
 let layerControl = null;
 let gpsWatchId = null;
+let gpsWatchSource = "none";
+let gpsShouldRun = false;
+let gpsRestarting = false;
 let layerErrorShown = false;
 let orientationMode = "north";
 let deferredInstallPrompt = null;
@@ -92,6 +103,15 @@ const contourLayerStatus = {
   requestState: "pending",
   httpStatus: "--",
   lastUrl: "",
+};
+const gpsDiagnostics = {
+  source: "none",
+  accuracy: null,
+  heading: null,
+  headingAccuracy: null,
+  lastUpdate: null,
+  permission: "unknown",
+  batteryProfile: `high accuracy, ${GPS_WATCH_OPTIONS.interval / 1000}s updates`,
 };
 
 /**
@@ -137,6 +157,48 @@ function renderGpsButtonState() {
   button.textContent = isActive ? TEXT[lang].gpsButtonActive : TEXT[lang].gpsStart;
   button.classList.toggle("is-active", isActive);
   button.setAttribute("aria-pressed", String(isActive));
+}
+
+/**
+ * Converts internal GPS diagnostic state into localized UI text.
+ *
+ * @returns {void}
+ */
+function renderGpsDiagnostics() {
+  const t = TEXT[lang] || TEXT.lt;
+  const sourceLabels = {
+    none: t.gpsSourceNone,
+    browser: t.gpsSourceBrowser,
+    native: t.gpsSourceNative,
+  };
+  const permissionLabels = {
+    granted: t.gpsPermissionGranted,
+    denied: t.gpsPermissionDenied,
+    prompt: t.gpsPermissionPrompt,
+    promptWithRationale: t.gpsPermissionPrompt,
+    unknown: t.gpsPermissionUnknown,
+  };
+  const lastUpdate = gpsDiagnostics.lastUpdate
+    ? new Intl.DateTimeFormat(lang === "lt" ? "lt-LT" : "en", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }).format(new Date(gpsDiagnostics.lastUpdate))
+    : t.gpsLastUpdateUnknown;
+
+  setText(
+    "gps-diagnostics",
+    t.gpsDiagnostics({
+      source: sourceLabels[gpsDiagnostics.source] || gpsDiagnostics.source,
+      accuracy: Number.isFinite(gpsDiagnostics.accuracy)
+        ? `${Math.round(gpsDiagnostics.accuracy)} m`
+        : t.gpsAccuracyUnknown,
+      lastUpdate,
+      permission:
+        permissionLabels[gpsDiagnostics.permission] || gpsDiagnostics.permission,
+      batteryProfile: gpsDiagnostics.batteryProfile,
+    }),
+  );
 }
 
 /**
@@ -447,6 +509,7 @@ function renderAllTexts() {
 
   renderTheme();
   renderGpsButtonState();
+  renderGpsDiagnostics();
   renderWaypointButtonState();
   renderMeasureButtonState();
   renderOrientationButton();
@@ -474,6 +537,7 @@ function renderAllTexts() {
   if (gpsMetrics && currentPosition.positions.length === 0) {
     gpsMetrics.textContent = t.gpsMetrics("--", "--");
   }
+  renderGpsDiagnostics();
 }
 
 const boatSettings = {
@@ -1331,6 +1395,44 @@ function shouldIgnoreDepthMapClick(event) {
 }
 
 /**
+ * Extracts the best available heading/course value from a geolocation position.
+ *
+ * Capacitor 8 exposes true heading, magnetic heading, heading, and course. The
+ * app prefers true heading for heading-up mode, then falls back conservatively.
+ *
+ * @param {GeolocationPosition|import("@capacitor/geolocation").Position} position GPS position.
+ * @returns {number|null} Heading/course in degrees or null.
+ */
+function getPositionHeading(position) {
+  const coords = position?.coords || {};
+  return [
+    coords.trueHeading,
+    coords.heading,
+    coords.course,
+    coords.magneticHeading,
+  ].find((value) => Number.isFinite(value)) ?? null;
+}
+
+/**
+ * Applies permission/source/accuracy diagnostics for a GPS fix.
+ *
+ * @param {GeolocationPosition|import("@capacitor/geolocation").Position} position GPS position.
+ * @param {"browser"|"native"} source GPS source.
+ * @returns {number|null} Heading/course selected for navigation.
+ */
+function updateGpsDiagnosticsFromPosition(position, source) {
+  const heading = getPositionHeading(position);
+  gpsDiagnostics.source = source;
+  gpsDiagnostics.accuracy = position.coords.accuracy;
+  gpsDiagnostics.heading = heading;
+  gpsDiagnostics.headingAccuracy = position.coords.headingAccuracy ?? null;
+  gpsDiagnostics.lastUpdate = position.timestamp || Date.now();
+  gpsDiagnostics.permission = "granted";
+  renderGpsDiagnostics();
+  return heading;
+}
+
+/**
  * Updates the GPS marker, accuracy circle, track line, and navigation mode state.
  *
  * Follow mode recenters the map after each fix. Heading-up and follow both apply
@@ -1391,6 +1493,55 @@ function updatePositionMarker(lat, lng, accuracy, speed = null, heading = null) 
 }
 
 /**
+ * Applies one GPS position update from browser or Capacitor native watch.
+ *
+ * @param {GeolocationPosition|import("@capacitor/geolocation").Position} position GPS position.
+ * @param {"browser"|"native"} source GPS source.
+ * @returns {void}
+ */
+function handleGpsPosition(position, source) {
+  if (!position?.coords) return;
+  const heading = updateGpsDiagnosticsFromPosition(position, source);
+  updatePositionMarker(
+    position.coords.latitude,
+    position.coords.longitude,
+    position.coords.accuracy,
+    position.coords.speed,
+    heading,
+  );
+}
+
+/**
+ * Handles geolocation errors consistently for browser and native watches.
+ *
+ * @param {Error|GeolocationPositionError|object} error GPS error.
+ * @returns {void}
+ */
+function handleGpsError(error) {
+  const message = error?.message || error?.code || "GPS unavailable";
+  gpsDiagnostics.permission =
+    String(message).toLowerCase().includes("permission") ||
+    String(message).toLowerCase().includes("denied")
+      ? "denied"
+      : gpsDiagnostics.permission;
+  gpsDiagnostics.source = gpsWatchSource;
+  renderGpsDiagnostics();
+
+  if (gpsWatchId !== null && gpsWatchSource === "browser") {
+    navigator.geolocation.clearWatch?.(gpsWatchId);
+  }
+  if (gpsWatchId !== null && gpsWatchSource === "native") {
+    void clearNativePositionWatch(gpsWatchId);
+  }
+  gpsWatchId = null;
+  gpsWatchSource = "none";
+  gpsShouldRun = false;
+  document.getElementById("gps-status").textContent =
+    TEXT[lang].gpsStatusError(message);
+  renderGpsButtonState();
+}
+
+/**
  * Shows or clears the waypoint-placement hint.
  *
  * @param {boolean} isOn Whether waypoint placement mode is active.
@@ -1422,64 +1573,104 @@ function updateWaypointModeUI(isOn) {
  *
  * @returns {void}
  */
-function geolocate() {
+async function startNativeGpsWatch() {
+  const permissionStatus = await requestNativeLocationPermission();
+  if (!permissionStatus) return false;
+
+  gpsDiagnostics.permission =
+    permissionStatus.location === "granted" || permissionStatus.coarseLocation === "granted"
+      ? "granted"
+      : permissionStatus.location || permissionStatus.coarseLocation || "unknown";
+  renderGpsDiagnostics();
+
+  if (gpsDiagnostics.permission !== "granted") {
+    throw new Error("Location permission denied");
+  }
+
+  const watchId = await startNativePositionWatch(
+    (position) => handleGpsPosition(position, "native"),
+    handleGpsError,
+  );
+  if (!watchId) return false;
+
+  gpsWatchId = watchId;
+  gpsWatchSource = "native";
+  gpsDiagnostics.source = "native";
+  renderGpsButtonState();
+  renderGpsDiagnostics();
+  return true;
+}
+
+function startBrowserGpsWatch() {
+  if (!navigator.geolocation) {
+    document.getElementById("gps-status").textContent = TEXT[lang].gpsUnavailable;
+    gpsDiagnostics.source = "none";
+    gpsDiagnostics.permission = "unknown";
+    renderGpsDiagnostics();
+    return false;
+  }
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (position) => handleGpsPosition(position, "browser"),
+    handleGpsError,
+    {
+      enableHighAccuracy: true,
+      maximumAge: GPS_WATCH_OPTIONS.maximumAge,
+      timeout: GPS_WATCH_OPTIONS.timeout,
+    },
+  );
+  gpsWatchSource = "browser";
+  gpsDiagnostics.source = "browser";
+  renderGpsButtonState();
+  renderGpsDiagnostics();
+  return true;
+}
+
+/**
+ * Starts live GPS tracking using Capacitor native watch on Android/iOS when available.
+ *
+ * Browser geolocation remains the fallback for web and test environments.
+ *
+ * @param {{isRestart?: boolean}} [options={}] Restart context.
+ * @returns {Promise<void>}
+ */
+async function geolocate(options = {}) {
   if (gpsWatchId !== null) {
     document.getElementById("gps-status").textContent = TEXT[lang].gpsAlreadyActive;
     renderGpsButtonState();
     return;
   }
 
-  if (!navigator.geolocation) {
-    document.getElementById("gps-status").textContent = TEXT[lang].gpsUnavailable;
-    return;
-  }
-
-  getNativePosition().then((position) => {
-    if (!position?.coords) return;
-    updatePositionMarker(
-      position.coords.latitude,
-      position.coords.longitude,
-      position.coords.accuracy,
-      position.coords.speed,
-      position.coords.heading,
-    );
-  });
-
+  gpsShouldRun = true;
   try {
-    gpsWatchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        const accuracy = position.coords.accuracy;
-        updatePositionMarker(
-          lat,
-          lng,
-          accuracy,
-          position.coords.speed,
-          position.coords.heading,
-        );
-      },
-      (error) => {
-        if (gpsWatchId !== null) {
-          navigator.geolocation.clearWatch?.(gpsWatchId);
-          gpsWatchId = null;
-        }
-        document.getElementById("gps-status").textContent =
-          TEXT[lang].gpsStatusError(error.message);
-        renderGpsButtonState();
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 10000,
-      },
-    );
-    renderGpsButtonState();
+    const nativeStarted = isNativePlatform()
+      ? await startNativeGpsWatch()
+      : false;
+    if (!nativeStarted && !startBrowserGpsWatch()) {
+      gpsShouldRun = false;
+    }
+    if (options.isRestart && gpsWatchId !== null) {
+      setText("gps-status", TEXT[lang].gpsRestarted);
+    }
+
+    getNativePosition().then((position) => {
+      if (!position?.coords || gpsWatchSource !== "native") return;
+      handleGpsPosition(position, "native");
+    });
   } catch (error) {
+    gpsShouldRun = false;
     gpsWatchId = null;
+    gpsWatchSource = "none";
+    gpsDiagnostics.source = "none";
+    gpsDiagnostics.permission = String(error.message || "")
+      .toLowerCase()
+      .includes("permission")
+      ? "denied"
+      : gpsDiagnostics.permission;
     document.getElementById("gps-status").textContent =
       TEXT[lang].gpsStatusError(error.message);
     renderGpsButtonState();
+    renderGpsDiagnostics();
   }
 }
 
@@ -1488,16 +1679,59 @@ function geolocate() {
  *
  * @returns {void}
  */
-function stopGps() {
+async function stopGps({ silent = false } = {}) {
   if (gpsWatchId === null) {
     renderGpsButtonState();
     return;
   }
 
-  navigator.geolocation.clearWatch?.(gpsWatchId);
+  if (gpsWatchSource === "native") {
+    await clearNativePositionWatch(gpsWatchId);
+  } else {
+    navigator.geolocation.clearWatch?.(gpsWatchId);
+  }
   gpsWatchId = null;
+  gpsWatchSource = "none";
+  gpsShouldRun = false;
+  gpsDiagnostics.source = "none";
   document.getElementById("gps-status").textContent = TEXT[lang].gpsStopped;
+  if (silent) {
+    document.getElementById("gps-status").textContent = TEXT[lang].gpsStatusWaiting;
+  }
   renderGpsButtonState();
+  renderGpsDiagnostics();
+}
+
+/**
+ * Restarts GPS after Android app resume, focus, or screen unlock.
+ *
+ * Some Android WebView/OS combinations stop delivering watch callbacks after
+ * backgrounding or lock/unlock. Restarting only when the user previously chose
+ * GPS tracking keeps battery impact bounded and avoids surprise tracking.
+ *
+ * @returns {Promise<void>}
+ */
+async function restartGpsAfterResume() {
+  if (!gpsShouldRun || gpsRestarting) return;
+  gpsRestarting = true;
+  const shouldResume = gpsShouldRun;
+  const previousWatchId = gpsWatchId;
+  const previousSource = gpsWatchSource;
+
+  try {
+    if (previousWatchId !== null) {
+      if (previousSource === "native") {
+        await clearNativePositionWatch(previousWatchId);
+      } else {
+        navigator.geolocation.clearWatch?.(previousWatchId);
+      }
+      gpsWatchId = null;
+      gpsWatchSource = "none";
+    }
+    if (shouldResume) await geolocate({ isRestart: true });
+  } finally {
+    gpsRestarting = false;
+  }
 }
 
 /**
@@ -2601,5 +2835,12 @@ window.addEventListener("appinstalled", () => {
 
 window.addEventListener("online", renderDepthStatus);
 window.addEventListener("offline", renderDepthStatus);
+window.addEventListener("focus", restartGpsAfterResume);
+window.addEventListener("pageshow", restartGpsAfterResume);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    void restartGpsAfterResume();
+  }
+});
 
 window.addEventListener("load", init);

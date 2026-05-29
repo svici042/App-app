@@ -46,6 +46,18 @@ export const TEXT = {
     gpsStatusActive: (lat, lng) =>
       `GPS veikia: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
     gpsMetrics: (speed, heading) => `Greitis: ${speed} kn · Kryptis: ${heading}°`,
+    gpsDiagnostics: ({ source, accuracy, lastUpdate, permission, batteryProfile }) =>
+      `GPS šaltinis: ${source} · Tikslumas: ${accuracy} · Atnaujinta: ${lastUpdate} · Leidimas: ${permission} · Baterija: ${batteryProfile}`,
+    gpsSourceNone: "nėra",
+    gpsSourceBrowser: "naršyklė",
+    gpsSourceNative: "Capacitor Android",
+    gpsAccuracyUnknown: "--",
+    gpsLastUpdateUnknown: "--",
+    gpsPermissionGranted: "suteiktas",
+    gpsPermissionDenied: "atmestas",
+    gpsPermissionPrompt: "laukiama",
+    gpsPermissionUnknown: "nežinoma",
+    gpsRestarted: "GPS atnaujintas po app sugrįžimo.",
     gpsStatusError: (msg) => `GPS klaida: ${msg}`,
     layerLoadError:
       "Nepavyko užkrauti vieno iš batimetrijos sluoksnių. Patikrinkite interneto ryšį.",
@@ -238,6 +250,18 @@ export const TEXT = {
     gpsStatusActive: (lat, lng) =>
       `GPS active: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
     gpsMetrics: (speed, heading) => `Speed: ${speed} kn · Heading: ${heading}°`,
+    gpsDiagnostics: ({ source, accuracy, lastUpdate, permission, batteryProfile }) =>
+      `GPS source: ${source} · Accuracy: ${accuracy} · Last update: ${lastUpdate} · Permission: ${permission} · Battery: ${batteryProfile}`,
+    gpsSourceNone: "none",
+    gpsSourceBrowser: "browser",
+    gpsSourceNative: "Capacitor Android",
+    gpsAccuracyUnknown: "--",
+    gpsLastUpdateUnknown: "--",
+    gpsPermissionGranted: "granted",
+    gpsPermissionDenied: "denied",
+    gpsPermissionPrompt: "prompt",
+    gpsPermissionUnknown: "unknown",
+    gpsRestarted: "GPS restarted after app resume.",
     gpsStatusError: (msg) => `GPS error: ${msg}`,
     layerLoadError:
       "Could not load one of the bathymetry layers. Check your internet connection.",
