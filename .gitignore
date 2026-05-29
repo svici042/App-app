@@ -6,3 +6,13 @@ playwright-report/
 .proxy-cache/
 .DS_Store
 npm-debug.log*
+
+# Logs
+*.log
+*.err.log
+
+# Vite logs
+vite*.log
+
+# Proxy logs
+proxy*.log

@@ -1,5 +1,0 @@
-
-> marine-navigator@1.0.0 proxy
-> node server/proxy-server.js
-
-Marine Navigator proxy running on http://localhost:8787
