@@ -18,4 +18,7 @@ export function createMapPanes(map) {
   map.getPane("depthPane").style.zIndex = 440;
   map.getPane("contourPane").style.zIndex = 450;
   map.getPane("sonarPane").style.zIndex = 460;
+  ["reliefPane", "depthPane", "contourPane", "sonarPane"].forEach((paneName) => {
+    map.getPane(paneName).style.pointerEvents = "none";
+  });
 }

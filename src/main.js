@@ -183,6 +183,8 @@ function renderAllTexts() {
   renderDepthSourceStatus();
   setText("provider-health-title", t.providerHealthTitle);
   setText("provider-health-status", t.providerHealthChecking);
+  setText("data-source-title", t.dataSourceTitle);
+  setText("data-source-warning", t.dataSourceWarning);
   setText("boat-settings-title", t.boatSettingsTitle);
   setText("boat-length-label", t.boatLengthLabel);
   setText("boat-speed-label", t.boatSpeedLabel);
@@ -228,6 +230,7 @@ function renderAllTexts() {
   renderBoatPreview();
   renderDepthStatus();
   renderProviderMetadata();
+  renderDataSourcePanel();
 
   const gpsStatus = document.getElementById("gps-status");
   if (gpsStatus) {
@@ -277,16 +280,18 @@ const depthLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   format: "image/png",
   transparent: true,
   pane: "depthPane",
-  opacity: 0.72,
+  opacity: 0.86,
   attribution: PROVIDERS.emodnetBathymetry.attribution,
+  className: "depth-tile",
 });
 const contourLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: primaryDepthSource.layers.contours,
   format: "image/png",
   transparent: true,
   pane: "contourPane",
-  opacity: 0.95,
+  opacity: 1,
   attribution: PROVIDERS.emodnetBathymetry.attribution,
+  className: "contour-tile",
 });
 const sonarLayer = L.tileLayer.wms(WMS_SOURCES.emodnet, {
   layers: "emodnet:source_references",
@@ -392,6 +397,11 @@ function getDepthCenterText() {
 function renderDepthStatus() {
   setText("depth-status", getDepthStatusText());
   setText(
+    "continuous-depth-status",
+    depthLayerStatus.loaded ? TEXT[lang].continuousDepthVisible : TEXT[lang].continuousDepthChecking,
+  );
+  setText("numeric-depth-status", TEXT[lang].numericDepthTapOnly);
+  setText(
     "depth-debug",
     `${getDepthLayerDiagnosticMessage()} · ${TEXT[lang].depthDebug({
       provider: primaryDepthSource.providerName,
@@ -439,6 +449,42 @@ function renderProviderMetadata() {
       `offline ${provider.offlineAllowed} · attribution ${provider.attribution}`;
     list.appendChild(item);
   });
+}
+
+function renderProviderDefinitionList(elementId, roleLabel, provider) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+
+  const fields = TEXT[lang].providerMetadataField;
+  element.innerHTML = "";
+  [
+    [fields.provider, `${roleLabel}: ${provider.displayName}`],
+    [fields.dataType, provider.dataType],
+    [fields.quality, provider.quality],
+    [fields.safetyUse, provider.safetyUse],
+    [fields.offlineAllowed, provider.offlineAllowed],
+    [fields.attribution, provider.attribution],
+  ].forEach(([label, value]) => {
+    const term = document.createElement("dt");
+    term.textContent = label;
+    const description = document.createElement("dd");
+    description.textContent = value;
+    element.append(term, description);
+  });
+}
+
+function renderDataSourcePanel() {
+  const t = TEXT[lang] || TEXT.lt;
+  renderProviderDefinitionList(
+    "active-depth-provider",
+    t.dataSourceRoleDepth,
+    PROVIDERS.emodnetBathymetry,
+  );
+  renderProviderDefinitionList(
+    "relief-provider",
+    t.dataSourceRoleRelief,
+    PROVIDERS.gebcoRelief,
+  );
 }
 
 function useFallbackBathymetry() {

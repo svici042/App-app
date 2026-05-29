@@ -82,6 +82,8 @@
                     <h3 id="depths-title">Gyliai</h3>
                     <p id="depths-description">Gyliai kraunami iš EMODnet Bathymetry WMS ir REST servisų.</p>
                     <p class="small-note safety-note" id="depth-safety-note">Depth data is for reference only. Not for primary navigation.</p>
+                    <p class="small-note" id="continuous-depth-status">Continuous depth overlays: checking</p>
+                    <p class="small-note" id="numeric-depth-status">Numeric depths available by tap/click only in this area.</p>
                     <p class="small-note" id="primary-depth-source">Primary depth source: EMODnet</p>
                     <p class="small-note" id="fallback-depth-status">Approximate seabed relief: unavailable</p>
                     <p class="small-note" id="fallback-depth-quality">Relief layer is low-resolution visual bathymetry, not safe depth data.</p>
@@ -93,6 +95,12 @@
                     <p id="provider-health-status">Tikrinama...</p>
                     <ul class="provider-health-list" id="provider-health-list"></ul>
                     <ul class="provider-metadata-list" id="provider-metadata-list"></ul>
+                </div>
+                <div class="info-card data-source-card">
+                    <h3 id="data-source-title">Data source / Data origin</h3>
+                    <p class="small-note safety-note" id="data-source-warning">Depth and bathymetry data are advisory only.</p>
+                    <dl class="data-source-list" id="active-depth-provider"></dl>
+                    <dl class="data-source-list" id="relief-provider"></dl>
                 </div>
             </article>
 

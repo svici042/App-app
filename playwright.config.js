@@ -16,13 +16,15 @@ export default defineConfig({
     },
     {
       command: "npm run dev",
-      url: "http://localhost:5173",
+      url: "https://localhost:5173",
       reuseExistingServer: true,
       timeout: 20_000,
+      ignoreHTTPSErrors: true,
     },
   ],
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "https://localhost:5173",
+    ignoreHTTPSErrors: true,
     trace: "on-first-retry",
   },
   projects: [

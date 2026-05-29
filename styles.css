@@ -405,6 +405,31 @@ button {
     background: var(--accent);
 }
 
+.depth-tile {
+    filter: saturate(1.18) contrast(1.12);
+}
+
+.contour-tile {
+    filter: contrast(1.45) saturate(1.25);
+}
+
+.data-source-list {
+    display: grid;
+    grid-template-columns: minmax(92px, auto) 1fr;
+    gap: 0.25rem 0.65rem;
+    margin: 0.75rem 0 0;
+    font-size: 0.82rem;
+}
+
+.data-source-list dt {
+    color: var(--muted);
+}
+
+.data-source-list dd {
+    margin: 0;
+    color: var(--text);
+}
+
 /* LT: Nustatymų formos laukai modaliniame lange. / EN: Settings form fields inside the modal window. */
 .fieldset {
     display: grid;
